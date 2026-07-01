@@ -3,6 +3,7 @@ from flask_login import login_required, current_user
 from database import SessionLocal, Attendance, load_students_from_excel, load_teachers_from_excel, get_admin_from_env
 from sqlalchemy import func
 from datetime import datetime
+from database import Session, Course, Enrollment
 import pandas as pd
 import io
 import os
@@ -38,22 +39,26 @@ def clear_dashboard_cache():
     _DASHBOARD_CACHE = {}
     _DASHBOARD_CACHE_TIME = 0
 
-@admin_bp.route("/dashboard")
+@admin_bp.route("/session/<int:session_id>/course/<int:course_id>/dashboard")
 @login_required
 @admin_required
-def dashboard():
+def course_dashboard(session_id, course_id):
     global _DASHBOARD_CACHE, _DASHBOARD_CACHE_TIME
 
     today = __import__("datetime").date.today().strftime("%Y-%m-%d")
     now = time.time()
+    cache_key = f"{session_id}_{course_id}_{today}"
 
-    if _DASHBOARD_CACHE and (now - _DASHBOARD_CACHE_TIME) < CACHE_TTL and _DASHBOARD_CACHE.get("today") == today:
+    if _DASHBOARD_CACHE and (now - _DASHBOARD_CACHE_TIME) < CACHE_TTL and _DASHBOARD_CACHE.get("cache_key") == cache_key:
         return render_template("admin/dashboard.html", **_DASHBOARD_CACHE)
 
     db = SessionLocal()
     try:
+        course_obj = db.query(Course).get(course_id)
+
         all_today_records = db.query(Attendance).filter(
-            Attendance.date == today
+            Attendance.date == today,
+            Attendance.course_id == course_id
         ).all()
 
         def student_obj_sort_key(r):
@@ -76,7 +81,8 @@ def dashboard():
 
         today_records = student_records + teacher_records
 
-        students_list = load_students_from_excel()
+        enrolled = db.query(Enrollment).filter(Enrollment.course_id == course_id).all()
+        students_list = [{"roll": e.roll_number, "name": e.name, "section": None} for e in enrolled]
         total_students = len(students_list)
         today_present = len(student_records)
         today_absent = total_students - today_present
@@ -96,21 +102,20 @@ def dashboard():
             key=student_dict_sort_key
         )
 
-        from database import load_teachers_from_excel
-        teachers_list = load_teachers_from_excel()
-        present_teacher_names = [r.name for r in teacher_records]
-        absent_teachers = sorted(
-            [t for t in teachers_list if t.get("name") not in present_teacher_names],
-            key=lambda x: get_teacher_rank(x.get("designation", ""))
-        )
+        # কোর্সে teacher enrollment এখনো নেই, তাই খালি রাখা হলো (ভবিষ্যতে যোগ করা যাবে)
+        teachers_list = []
+        absent_teachers = []
 
-        all_dates = db.query(Attendance.date).filter(Attendance.role == "student").distinct().all()
+        all_dates = db.query(Attendance.date).filter(
+            Attendance.role == "student",
+            Attendance.course_id == course_id
+        ).distinct().all()
         total_days = len(all_dates)
 
         low_attendance = []
         if total_days > 0:
             attendance_results = db.query(Attendance.roll_number, func.count(Attendance.id))\
-                .filter(Attendance.role == "student")\
+                .filter(Attendance.role == "student", Attendance.course_id == course_id)\
                 .group_by(Attendance.roll_number).all()
 
             attendance_counts = {row[0]: row[1] for row in attendance_results}
@@ -137,7 +142,7 @@ def dashboard():
         start_date = (dt.today() - timedelta(days=6)).strftime("%Y-%m-%d")
 
         chart_results = db.query(Attendance.date, func.count(Attendance.roll_number.distinct()))\
-            .filter(Attendance.date >= start_date, Attendance.role == "student")\
+            .filter(Attendance.date >= start_date, Attendance.role == "student", Attendance.course_id == course_id)\
             .group_by(Attendance.date).all()
 
         chart_counts = {row[0]: row[1] for row in chart_results}
@@ -151,6 +156,10 @@ def dashboard():
             chart_absent.append(total_students - present)
 
         context = dict(
+            course=course_obj,
+            session_id=session_id,
+            course_id=course_id,
+            cache_key=cache_key,
             today_records=today_records,
             total_students=total_students,
             today_present=today_present,
@@ -176,6 +185,30 @@ def dashboard():
 
     return render_template("admin/dashboard.html", **_DASHBOARD_CACHE)
 
+@admin_bp.route("/dashboard")
+@login_required
+@admin_required
+def dashboard():
+    db = SessionLocal()
+    try:
+        sessions = db.query(Session).filter(Session.is_active == 1).order_by(Session.name.desc()).all()
+    finally:
+        db.close()
+    return render_template("admin/sessions.html", sessions=sessions)
+
+
+@admin_bp.route("/session/<int:session_id>/courses")
+@login_required
+@admin_required
+def session_courses(session_id):
+    db = SessionLocal()
+    try:
+        session_obj = db.query(Session).get(session_id)
+        courses = db.query(Course).filter(Course.session_id == session_id)\
+            .order_by(Course.course_code).all()
+    finally:
+        db.close()
+    return render_template("admin/courses.html", session=session_obj, courses=courses)
 
 @admin_bp.route("/attendance")
 @login_required

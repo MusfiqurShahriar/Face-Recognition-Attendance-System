@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>📖 {{ session.name }} — কোর্স তালিকা</h2>
+
+<div class="tabs-container" style="margin-bottom: 15px;">
+    <a href="{{ url_for('admin.dashboard') }}" class="tab-btn">← সব Session</a>
+</div>
+
+<div style="border-left: 4px solid var(--accent); border-radius: 8px; overflow: hidden;">
+    <table class="attendance-table" style="margin-top: 0;">
+        <thead>
+            <tr>
+                <th>Course Code</th>
+                <th class="text-left">Course Name</th>
+                <th>Section</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in courses %}
+            <tr>
+                <td>{{ c.course_code }}</td>
+                <td class="text-left">{{ c.course_name }}</td>
+                <td>{{ c.section or "—" }}</td>
+                <td>
+                    <a href="{{ url_for('admin.course_dashboard', session_id=session.id, course_id=c.id) }}"
+                       class="btn-primary" style="padding:5px 12px; border-radius:6px; text-decoration:none;">
+                        Enter →
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+            {% if courses|length == 0 %}
+            <tr>
+                <td colspan="4" style="text-align:center; color:var(--text-muted); padding: 20px;">
+                    এই সেশনে কোনো কোর্স যোগ করা হয়নি
+                </td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

@@ -1,5 +1,5 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, create_engine
+from sqlalchemy.orm import relationship, declarative_base, sessionmaker
 from datetime import datetime
 import pandas as pd
 import os
@@ -64,6 +64,8 @@ class Attendance(Base):
     status = Column(String, nullable=False)
     semester = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.now)
+    course_id = Column(Integer, ForeignKey('course.id'), nullable=True)
+    session_id = Column(Integer, ForeignKey('session.id'), nullable=True)
 
 
 class ClassSession(Base):
@@ -74,10 +76,8 @@ class ClassSession(Base):
     section = Column(String, nullable=False)
     first_entry_time = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.now)
-
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
-from datetime import datetime
+    course_id = Column(Integer, ForeignKey('course.id'), nullable=True)
+    session_id = Column(Integer, ForeignKey('session.id'), nullable=True)
 
 class Session(Base):
     __tablename__ = 'session'
@@ -85,7 +85,6 @@ class Session(Base):
     name = Column(String(20), unique=True, nullable=False)  # e.g. "2022-23"
     is_active = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.now)
-
     courses = relationship('Course', backref='session', lazy=True)
 
 
