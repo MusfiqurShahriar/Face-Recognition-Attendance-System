@@ -75,6 +75,38 @@ class ClassSession(Base):
     first_entry_time = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.now)
 
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
+from datetime import datetime
+
+class Session(Base):
+    __tablename__ = 'session'
+    id = Column(Integer, primary_key=True)
+    name = Column(String(20), unique=True, nullable=False)  # e.g. "2022-23"
+    is_active = Column(Integer, default=1)
+    created_at = Column(DateTime, default=datetime.now)
+
+    courses = relationship('Course', backref='session', lazy=True)
+
+
+class Course(Base):
+    __tablename__ = 'course'
+    id = Column(Integer, primary_key=True)
+    session_id = Column(Integer, ForeignKey('session.id'), nullable=False)
+    course_code = Column(String(20), nullable=False)
+    course_name = Column(String(100), nullable=False)
+    section = Column(String(20))
+    created_at = Column(DateTime, default=datetime.now)
+
+
+class Enrollment(Base):
+    __tablename__ = 'enrollment'
+    id = Column(Integer, primary_key=True)
+    course_id = Column(Integer, ForeignKey('course.id'), nullable=False)
+    user_id = Column(String(50), nullable=False)
+    name = Column(String(100))
+    roll_number = Column(String(50))
+    created_at = Column(DateTime, default=datetime.now)
 
 def load_students_from_excel():
     global _STUDENT_CACHE, _STUDENT_CACHE_TIME
