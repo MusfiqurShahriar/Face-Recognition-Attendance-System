@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>📚 আমার Course সমূহ</h2>
+
+<div class="stats-grid">
+    {% for c in courses %}
+    <div class="stat-card" style="cursor:pointer; text-align:left; padding: 20px;"
+         onclick="window.location.href='{{ url_for('student.course_dashboard', course_id=c.id) }}'">
+        <div class="stat-number" style="font-size: 1.2rem;">{{ c.course_code }}</div>
+        <div class="stat-label">{{ c.course_name }}{% if c.section %} — {{ c.section }}{% endif %}</div>
+    </div>
+    {% endfor %}
+
+    {% if courses|length == 0 %}
+    <div class="notification-box">
+        <div>
+            <h3>কোনো Course এ enroll করা নেই</h3>
+            <p>Admin এর সাথে যোগাযোগ করে course এ enroll হও</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

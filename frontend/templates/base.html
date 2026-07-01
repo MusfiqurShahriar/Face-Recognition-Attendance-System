@@ -42,8 +42,8 @@
                 class="{{ 'nav-active' if request.endpoint == 'admin.change_password' else '' }}">Change Password</a>
 
             {% elif current_user.role == 'student' %}
-            <a href="{{ url_for('student.dashboard') }}"
-                class="{{ 'nav-active' if request.endpoint == 'student.dashboard' else '' }}">আমার Attendance</a>
+            <a href="{{ url_for('student.my_courses') }}"
+                class="{{ 'nav-active' if request.endpoint == 'student.my_courses' else '' }}">আমার Attendance</a>
 
             {% elif current_user.role == 'teacher' %}
             <a href="{{ url_for('teacher.dashboard') }}"

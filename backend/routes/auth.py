@@ -100,7 +100,7 @@ def login():
         if student and student["login_password"] == password:
             user = LoginUser(student, "student")
             login_user(user)
-            return redirect(url_for("student.dashboard"))
+            return redirect(url_for("student.my_courses"))
         from database import get_teacher_by_email
         teacher = get_teacher_by_email(email)
         if teacher and teacher["login_password"] == password:
