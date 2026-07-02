@@ -107,6 +107,49 @@ class Enrollment(Base):
     roll_number = Column(String(50))
     created_at = Column(DateTime, default=datetime.now)
 
+class Camera(Base):
+    __tablename__ = 'camera'
+    id = Column(Integer, primary_key=True)
+    camera_code = Column(String(20), unique=True, nullable=False)  # "804", "805" ইত্যাদি
+    room_name = Column(String(50))
+    created_at = Column(DateTime, default=datetime.now)
+
+
+class CameraCommand(Base):
+    __tablename__ = 'camera_command'
+    id = Column(Integer, primary_key=True)
+    camera_id = Column(Integer, ForeignKey('camera.id'), nullable=False)
+    course_id = Column(Integer, ForeignKey('course.id'), nullable=False)
+    session_id = Column(Integer, ForeignKey('session.id'), nullable=False)
+    status = Column(String(20), default="pending")  # pending / acknowledged
+    created_at = Column(DateTime, default=datetime.now)
+
+class CRAccount(Base):
+    __tablename__ = 'cr_account'
+    id = Column(Integer, primary_key=True)
+    session_id = Column(Integer, ForeignKey('session.id'), nullable=False)
+    name = Column(String(100), nullable=False)
+    login_email = Column(String(100), unique=True, nullable=False)
+    login_password = Column(String(100), nullable=False)
+    created_at = Column(DateTime, default=datetime.now)
+
+def get_cr_by_email(email):
+    db = SessionLocal()
+    try:
+        cr = db.query(CRAccount).filter(CRAccount.login_email == email).first()
+        if not cr:
+            return None
+        return {
+            "name": cr.name,
+            "login_email": cr.login_email,
+            "login_password": cr.login_password,
+            "session_id": cr.session_id,
+            "roll": None,
+            "section": None
+        }
+    finally:
+        db.close()
+
 def load_students_from_excel():
     global _STUDENT_CACHE, _STUDENT_CACHE_TIME
 

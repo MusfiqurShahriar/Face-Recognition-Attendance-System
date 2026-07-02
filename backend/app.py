@@ -29,6 +29,7 @@ class LoginUser:
         self.role = role
         self.roll_number = data.get("roll", None)
         self.section = data.get("section", None)
+        self.session_id = data.get("session_id", None)
         self.is_authenticated = True
         self.is_active = True
         self.is_anonymous = False
@@ -53,6 +54,11 @@ def load_user(user_id):
         teacher = get_teacher_by_email(email)
         if teacher:
             return LoginUser(teacher, "teacher")
+    elif role == "cr":
+        from database import get_cr_by_email
+        cr = get_cr_by_email(email)
+        if cr:
+            return LoginUser(cr, "cr")
     return None
 
 @app.after_request
@@ -72,11 +78,13 @@ def api_mark_attendance():
     name = data.get("name")
     role = data.get("role")
     semester = data.get("semester")
+    course_id = data.get("course_id")
+    session_id = data.get("session_id")
     
     if not name or not role:
         return jsonify({"status": "error", "message": "Missing name or role"}), 400
         
-    result = mark_attendance(name=name, role=role, semester=semester)
+    result = mark_attendance(name=name, role=role, semester=semester, course_id=course_id, session_id=session_id)
     
     if result == "duplicate":
         return jsonify({"status": "duplicate", "message": "Already marked"})
@@ -84,6 +92,37 @@ def api_mark_attendance():
         return jsonify({"status": "success", "status_message": result})
     else:
         return jsonify({"status": "error", "message": "Failed to mark attendance"})
+@app.route("/api/camera-command/<camera_code>", methods=["GET"])
+def get_camera_command(camera_code):
+    from database import SessionLocal, Camera, CameraCommand, Course
+
+    db = SessionLocal()
+    try:
+        camera = db.query(Camera).filter(Camera.camera_code == camera_code).first()
+        if not camera:
+            return {"status": "error", "message": "Camera পাওয়া যায়নি"}, 404
+
+        command = db.query(CameraCommand).filter(
+            CameraCommand.camera_id == camera.id,
+            CameraCommand.status == "pending"
+        ).order_by(CameraCommand.created_at.desc()).first()
+
+        if not command:
+            return {"status": "no_command"}, 200
+
+        course = db.query(Course).get(command.course_id)
+
+        command.status = "acknowledged"
+        db.commit()
+
+        return {
+            "status": "success",
+            "course_id": command.course_id,
+            "session_id": command.session_id,
+            "course_code": course.course_code if course else None
+        }, 200
+    finally:
+        db.close()
 
 # ==========================================
 # SMART BULK & MANUAL ATTENDANCE CONTROLLER
@@ -199,7 +238,8 @@ from routes.admin import admin_bp
 from routes.student import student_bp
 from routes.auth import auth_bp
 from routes.teacher import teacher_bp
-
+from routes.cr import cr_bp
+app.register_blueprint(cr_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(student_bp)
 app.register_blueprint(auth_bp)

@@ -1,3 +1,4 @@
+import time
 import face_recognition
 import cv2
 import pickle
@@ -14,7 +15,16 @@ OFFLINE_FILE = "offline_queue.json"
 TOLERANCE = 0.45
 CURRENT_SEMESTER = None
 
-SERVER_URL = "https://face-recognition-attendance-system-yuhz.onrender.com/api/mark-attendance"
+from dotenv import load_dotenv
+load_dotenv()
+
+BASE_URL = os.getenv("SERVER_BASE_URL", "https://face-recognition-attendance-system-yuhz.onrender.com")
+SERVER_URL = f"{BASE_URL}/api/mark-attendance"
+POLL_URL = f"{BASE_URL}/api/camera-command"
+CAMERA_CODE = None  # শুরুতে জিজ্ঞেস করা হবে
+
+active_course_id = None
+active_session_id = None
 
 # ==========================================
 # Shared State (Thread-safe)
@@ -124,7 +134,9 @@ def mark_attendance(name, role):
     payload = {
         "name": name,
         "role": role.rstrip("s"),
-        "semester": CURRENT_SEMESTER
+        "semester": CURRENT_SEMESTER,
+        "course_id": active_course_id,
+        "session_id": active_session_id
     }
     try:
         response = requests.post(SERVER_URL, json=payload, timeout=10)
@@ -143,6 +155,23 @@ def mark_attendance(name, role):
     except requests.exceptions.RequestException:
         save_offline(payload)
         return "Saved Offline"
+
+def poll_camera_command():
+    global active_course_id, active_session_id
+    while True:
+        try:
+            res = requests.get(f"{POLL_URL}/{CAMERA_CODE}", timeout=5)
+            if res.status_code == 200:
+                data = res.json()
+                if data.get("status") == "success":
+                    new_course = data.get("course_id")
+                    if new_course != active_course_id:
+                        active_course_id = new_course
+                        active_session_id = data.get("session_id")
+                        print(f"\n[COMMAND] নতুন Course activate হলো: {data.get('course_code')} (course_id={active_course_id})\n")
+        except requests.exceptions.RequestException:
+            pass
+        time.sleep(5)
 
 # ==========================================
 # Camera Thread
@@ -259,6 +288,12 @@ print("4. Laptop + Phone + ESP32-CAM (সব)")
 print("5. শুধু Phone Camera")
 print("6. শুধু ESP32-CAM")
 print("=" * 50)
+
+CAMERA_CODE = input("এই Camera এর Room number (যেমন 804): ").strip()
+
+polling_thread = threading.Thread(target=poll_camera_command, daemon=True)
+polling_thread.start()
+print(f"[INFO] Camera Command Polling চালু হয়েছে (Room {CAMERA_CODE})। CR থেকে command এর অপেক্ষায়...\n")
 
 choice = input("আপনার choice (1-6): ").strip()
 

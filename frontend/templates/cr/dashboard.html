@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>🎥 CR ড্যাশবোর্ড — {{ current_user.name }}</h2>
+<p class="page-sub" style="color:var(--text-muted); margin-bottom:20px;">
+    আপনার session-এর জন্য camera চালু করুন এবং attendance report দেখুন
+</p>
+
+<div
+    style="background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:24px; max-width:500px; margin-bottom:30px;">
+    <h3 style="margin-bottom:16px;">📷 Camera চালু করুন</h3>
+    <form method="POST">
+        <div class="form-group" style="margin-bottom:14px;">
+            <label>কোন Room / Camera:</label>
+            <select name="camera_id" required
+                style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:8px 12px; color:var(--text-primary); width:100%;">
+                <option value="">-- Camera সিলেক্ট করুন --</option>
+                {% for cam in cameras %}
+                <option value="{{ cam.id }}">Room {{ cam.camera_code }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom:18px;">
+            <label>কোন Course:</label>
+            <select name="course_id" required
+                style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:8px 12px; color:var(--text-primary); width:100%;">
+                <option value="">-- Course সিলেক্ট করুন --</option>
+                {% for c in courses %}
+                <option value="{{ c.id }}">{{ c.course_code }} — {{ c.course_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <button type="submit" class="btn-primary" style="width:100%; padding:10px;">Camera চালু করো</button>
+    </form>
+</div>
+
+<h3 style="margin-bottom:16px;">📊 Course-wise Attendance Report</h3>
+<div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:14px;">
+    {% for c in courses %}
+    <div class="stat-card" style="cursor:pointer; text-align:left; padding:18px;"
+        onclick="window.location.href='{{ url_for('cr.course_report', course_id=c.id) }}'">
+        <div style="font-weight:700; font-size:1.1rem;">{{ c.course_code }}</div>
+        <div style="color:var(--text-muted); font-size:0.9rem; margin-top:4px;">{{ c.course_name }}</div>
+    </div>
+    {% endfor %}
+
+    {% if courses|length == 0 %}
+    <div class="notification-box">
+        <div>
+            <h3>কোনো Course পাওয়া যায়নি</h3>
+            <p>আপনার session-এর জন্য এখনো কোনো course যোগ করা হয়নি</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

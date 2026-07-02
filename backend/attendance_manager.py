@@ -4,12 +4,18 @@ import pytz
 
 LATE_THRESHOLD_MINUTES = 20
 
-def is_duplicate(roll_number, date):
+def is_duplicate(roll_number, date, course_id=None):
     db = SessionLocal()
-    existing = db.query(Attendance).filter(
+    query = db.query(Attendance).filter(
         Attendance.roll_number == roll_number,
         Attendance.date == date
-    ).first()
+    )
+    if course_id is not None:
+        query = query.filter(Attendance.course_id == course_id)
+    else:
+        query = query.filter(Attendance.course_id.is_(None))
+
+    existing = query.first()
     db.close()
     return existing is not None
 
@@ -67,9 +73,8 @@ def calculate_status(role, section, date, current_time_str):
     return "On Time" if diff_minutes <= LATE_THRESHOLD_MINUTES else "Late"
 
 
-def mark_attendance(name, role, section=None, semester=None):
+def mark_attendance(name, role, section=None, semester=None, course_id=None, session_id=None):
     # --- ম্যাজিক কোড শুরু ---
-    # বাংলাদেশের টাইমজোন সেট করা হলো
     tz_dhaka = pytz.timezone('Asia/Dhaka')
     now = datetime.now(tz_dhaka)
     # --- ম্যাজিক কোড শেষ ---
@@ -77,7 +82,6 @@ def mark_attendance(name, role, section=None, semester=None):
     date_str = now.strftime("%Y-%m-%d")
     time_str = now.strftime("%H:%M:%S")
 
-    # Excel থেকে student info নাও
     student = get_student_by_name(name)
 
     from database import get_teacher_by_name
@@ -91,7 +95,6 @@ def mark_attendance(name, role, section=None, semester=None):
 
     if teacher is not None:
         roll = teacher["name"]
-        # section এর ভেতরে আমরা এক্সেল থেকে designation নিয়ে সেভ করব
         sec = str(teacher.get("designation", "Teacher")) 
         sem = ""
     else:
@@ -99,7 +102,7 @@ def mark_attendance(name, role, section=None, semester=None):
         sec = section or student["section"]
         sem = student.get("semester", "") or semester or ""
 
-    if is_duplicate(roll, date_str):
+    if is_duplicate(roll, date_str, course_id):
         return "duplicate"
 
     status = calculate_status(role, sec, date_str, time_str)
@@ -114,11 +117,13 @@ def mark_attendance(name, role, section=None, semester=None):
         date=date_str,
         time=time_str,
         status=status,
-        semester=sem
+        semester=sem,
+        course_id=course_id,
+        session_id=session_id
     )
     db.add(record)
     db.commit()
     db.close()
 
-    print(f"[ATTENDANCE] Roll: {roll} | {name} | {status} | {date_str} {time_str}")
+    print(f"[ATTENDANCE] Roll: {roll} | {name} | {status} | {date_str} {time_str} | Course: {course_id}")
     return status

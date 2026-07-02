@@ -6,6 +6,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
+from database import get_cr_by_email
 import os
 
 load_dotenv()
@@ -24,6 +25,7 @@ class LoginUser:
         self.role = role
         self.roll_number = data.get("roll", None)
         self.section = data.get("section", None)
+        self.session_id = data.get("session_id", None)
         self.is_authenticated = True
         self.is_active = True
         self.is_anonymous = False
@@ -95,6 +97,12 @@ def login():
             user = LoginUser(admin, "admin")
             login_user(user)
             return redirect(url_for("admin.dashboard"))
+
+        cr = get_cr_by_email(email)
+        if cr and cr["login_password"] == password:
+            user = LoginUser(cr, "cr")
+            login_user(user)
+            return redirect(url_for("cr.dashboard"))
 
         student = get_student_by_email(email)
         if student and student["login_password"] == password:

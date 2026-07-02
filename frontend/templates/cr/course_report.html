@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="tabs-container" style="margin-bottom:15px;">
+    <a href="{{ url_for('cr.dashboard') }}" class="tab-btn">← Dashboard এ ফিরুন</a>
+</div>
+
+<h2>{{ course.course_name }} ({{ course.course_code }}) — Attendance Report</h2>
+<p class="page-sub" style="color:var(--text-muted); margin-bottom:20px;">
+    মোট ক্লাস হয়েছে: {{ total_days }} দিন
+</p>
+
+<div style="border-left:4px solid var(--accent); border-radius:8px; overflow:hidden;">
+    <table class="attendance-table" style="margin-top:0;">
+        <thead>
+            <tr>
+                <th>Roll</th>
+                <th class="text-left">নাম</th>
+                <th>উপস্থিত / মোট</th>
+                <th>Percentage</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in report %}
+            <tr>
+                <td>{{ r.roll }}</td>
+                <td class="text-left">{{ r.name }}</td>
+                <td>{{ r.present }} / {{ r.total }}</td>
+                <td>
+                    <span class="badge {% if r.percentage < 70 %}badge-absent{% else %}badge-on-time{% endif %}">
+                        {{ r.percentage }}%
+                    </span>
+                </td>
+            </tr>
+            {% endfor %}
+            {% if report|length == 0 %}
+            <tr>
+                <td colspan="4" style="text-align:center; color:var(--text-muted); padding:20px;">
+                    এই কোর্সে কোনো student enrolled নেই
+                </td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}
