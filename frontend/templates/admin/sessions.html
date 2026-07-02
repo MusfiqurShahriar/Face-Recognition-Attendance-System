@@ -2,13 +2,26 @@
 {% block content %}
 
 <h2>📚 Running Sessions</h2>
+<p class="page-sub" style="margin-bottom: 20px; color: var(--text-muted);">
+        যেকোনো Session-এ ক্লিক করে সেই সেশনের কোর্সসমূহ দেখুন
+</p>
 
-<div class="stats-grid">
+<div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:16px;">
         {% for s in sessions %}
-        <div class="stat-card" style="cursor:pointer; text-align:left; padding: 20px;"
+        <div class="session-card"
                 onclick="window.location.href='{{ url_for('admin.session_courses', session_id=s.id) }}'">
-                <div class="stat-number" style="font-size: 1.4rem;">{{ s.name }}</div>
-                <div class="stat-label">সেশন দেখতে ক্লিক করুন →</div>
+                <div style="display:flex; align-items:center; justify-content:space-between;">
+                        <div style="display:flex; align-items:center; gap:14px;">
+                                <div class="session-icon">🎓</div>
+                                <div>
+                                        <div style="font-size:1.3rem; font-weight:700; color:var(--text-primary);">{{
+                                                s.name }}</div>
+                                        <div style="font-size:0.85rem; color:var(--text-muted); margin-top:2px;">সেশন
+                                                দেখতে ক্লিক করুন</div>
+                                </div>
+                        </div>
+                        <div style="font-size:1.4rem; color:var(--accent);">→</div>
+                </div>
         </div>
         {% endfor %}
 
@@ -21,5 +34,34 @@
         </div>
         {% endif %}
 </div>
+
+<style>
+        .session-card {
+                background: var(--bg-card);
+                border: 1px solid var(--border);
+                border-left: 4px solid var(--accent);
+                border-radius: 10px;
+                padding: 18px 22px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+        }
+
+        .session-card:hover {
+                transform: translateX(4px);
+                background: var(--bg-primary);
+                box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+        }
+
+        .session-icon {
+                width: 42px;
+                height: 42px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: rgba(99, 102, 241, 0.15);
+                border-radius: 10px;
+                font-size: 1.3rem;
+        }
+</style>
 
 {% endblock %}

@@ -191,7 +191,7 @@ def course_dashboard(session_id, course_id):
 def dashboard():
     db = SessionLocal()
     try:
-        sessions = db.query(Session).filter(Session.is_active == 1).order_by(Session.name.desc()).all()
+        sessions = db.query(Session).filter(Session.is_active == 1).order_by(Session.name.asc()).all()
     finally:
         db.close()
     return render_template("admin/sessions.html", sessions=sessions)
@@ -488,20 +488,74 @@ def send_notifications():
 @login_required
 @admin_required
 def upload_students():
-    if request.method == "POST":
-        file = request.files.get("excel_file")
-        if file and file.filename.endswith(".xlsx"):
+    db = SessionLocal()
+    try:
+        sessions = db.query(Session).filter(Session.is_active == 1).order_by(Session.name.desc()).all()
+
+        if request.method == "POST":
+            file = request.files.get("excel_file")
+            session_id = request.form.get("session_id")
+
+            if not file or not file.filename.endswith(".xlsx"):
+                flash("শুধু .xlsx ফাইল upload করুন!", "error")
+                return render_template("admin/upload_students.html", sessions=sessions)
+
+            if not session_id:
+                flash("কোন Session এর জন্য sheet, সেটা সিলেক্ট করুন!", "error")
+                return render_template("admin/upload_students.html", sessions=sessions)
+
+            # আগের মতোই students.xlsx সেভ (অপরিবর্তিত)
             save_path = os.path.normpath(os.path.join(
                 os.path.dirname(os.path.abspath(__file__)),
                 "..", "..", "database", "students.xlsx"
             ))
             file.save(save_path)
-            flash("Student list সফলভাবে update হয়েছে!", "success")
-            return redirect(url_for("admin.dashboard"))
-        else:
-            flash("শুধু .xlsx ফাইল upload করুন!", "error")
 
-    return render_template("admin/upload_students.html")
+            # নতুন: এই sheet পড়ে bulk enrollment করা
+            import pandas as pd
+            df = pd.read_excel(save_path)
+
+            courses = db.query(Course).filter(Course.session_id == session_id).all()
+            course_ids = [c.id for c in courses]
+
+            enrolled_count = 0
+            skipped_count = 0
+
+            for _, row in df.iterrows():
+                roll = str(row.get("roll", "")).strip()
+                name = str(row.get("name", "")).strip()
+
+                if not roll:
+                    continue
+
+                for cid in course_ids:
+                    existing = db.query(Enrollment).filter(
+                        Enrollment.course_id == cid,
+                        Enrollment.user_id == roll
+                    ).first()
+
+                    if existing:
+                        skipped_count += 1
+                        continue
+
+                    new_enrollment = Enrollment(
+                        course_id=cid,
+                        user_id=roll,
+                        name=name,
+                        roll_number=roll
+                    )
+                    db.add(new_enrollment)
+                    enrolled_count += 1
+
+            db.commit()
+
+            flash(f"Student list update হয়েছে! {enrolled_count} নতুন enrollment হয়েছে, {skipped_count} আগে থেকেই ছিল।", "success")
+            return redirect(url_for("admin.dashboard"))
+
+    finally:
+        db.close()
+
+    return render_template("admin/upload_students.html", sessions=sessions)
 
 
 @admin_bp.route("/change-password", methods=["GET", "POST"])

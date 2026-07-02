@@ -1,22 +1,29 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Student List Update করো</h2>
+<h2>Update Student Lists</h2>
 
-<div style="background:white; padding:24px; border-radius:8px;
-     box-shadow:0 2px 8px rgba(0,0,0,0.08); max-width:500px;">
+<div style="background:var(--bg-card); padding:24px; border-radius:8px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.2); max-width:500px; border:1px solid var(--border);">
 
-    <p style="margin-bottom:16px; color:#555;">
-        Excel ফাইলে এই columns থাকতে হবে:<br>
-        <code>name, roll, section, login_email,
+    <p style="margin-bottom:16px; color:var(--text-secondary);">
+        <b>The Excel file must contain these columns:</b><br>
+        <code style="color:var(--text-primary);">name, roll, section, login_email,
         login_password, guardian_email, semester</code>
     </p>
 
     <form method="POST" enctype="multipart/form-data">
-        <div class="form-group">
-            <label>Excel ফাইল (.xlsx)</label>
-            <input type="file" name="excel_file" accept=".xlsx" required>
-        </div>
-        <button type="submit" class="btn-primary">Upload করো</button>
+        <label>Which session is this sheet for?</label>
+        <select name="session_id" required
+            style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 100%; margin-bottom: 15px;">
+            <option value="">--Select Session--</option>
+            {% for s in sessions %}
+            <option value="{{ s.id }}">{{ s.name }}</option>
+            {% endfor %}
+        </select>
+    
+        <label>Excel File (.xlsx)</label>
+        <input type="file" name="excel_file" accept=".xlsx">
+        <button type="submit">Upload করো</button>
     </form>
 </div>
 {% endblock %}
