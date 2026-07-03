@@ -17,47 +17,42 @@
 </head>
 
 <body>
-    {% if current_user.is_authenticated %}
-    <nav class="navbar">
+{% if current_user.is_authenticated %}
+<nav class="navbar">
+    <a href="{{ url_for('about') }}" class="navbar-brand">
+        👤 Face Recognition Attendance System
+    </a>
+    <button class="hamburger" onclick="toggleMenu()" id="hamburger">☰</button>
+    <div class="nav-links" id="nav-links">
+        {% if current_user.role in ['admin', 'teacher'] %}
+        <a href="{{ url_for('admin.dashboard') }}"
+            class="{{ 'nav-active' if request.endpoint == 'admin.dashboard' else '' }}">Dashboard</a>
 
-        <a href="{{ url_for('about') }}" class="navbar-brand">
-            👤 Face Recognition Attendance System
-        </a>
+        {% if request.endpoint in ['admin.course_dashboard', 'admin.course_percentage', 'admin.course_history'] %}
+        <a href="{{ url_for('admin.course_percentage', session_id=request.view_args.session_id, course_id=request.view_args.course_id) }}"
+            class="{{ 'nav-active' if request.endpoint == 'admin.course_percentage' else '' }}">Percentage</a>
+        <a href="{{ url_for('admin.course_history', session_id=request.view_args.session_id, course_id=request.view_args.course_id) }}"
+            class="{{ 'nav-active' if request.endpoint == 'admin.course_history' else '' }}">Attendance</a>
+        {% endif %}
 
-        <button class="hamburger" onclick="toggleMenu()" id="hamburger">☰</button>
-
-        <div class="nav-links" id="nav-links">
-            {% if current_user.role in ['admin', 'teacher'] %}
-            <a href="{{ url_for('admin.dashboard') }}"
-                class="{{ 'nav-active' if request.endpoint == 'admin.dashboard' else '' }}">Dashboard</a>
-            <a href="{{ url_for('admin.attendance') }}"
-                class="{{ 'nav-active' if request.endpoint == 'admin.attendance' else '' }}">Attendance</a>
-            <a href="{{ url_for('admin.percentage') }}"
-                class="{{ 'nav-active' if request.endpoint == 'admin.percentage' else '' }}">Percentage</a>
-            <!-- <a href="{{ url_for('admin.export_excel') }}"
-                class="{{ 'nav-active' if request.endpoint == 'admin.export_excel' else '' }}">Download Attendance</a> -->
-            <a href="{{ url_for('admin.upload_students') }}"
-                class="{{ 'nav-active' if request.endpoint == 'admin.upload_students' else '' }}">Student List</a>
-            <a href="{{ url_for('admin.change_password') }}"
-                class="{{ 'nav-active' if request.endpoint == 'admin.change_password' else '' }}">Change Password</a>
-
-            {% elif current_user.role == 'student' %}
-            <a href="{{ url_for('student.my_courses') }}"
-                class="{{ 'nav-active' if request.endpoint == 'student.my_courses' else '' }}">আমার Attendance</a>
-
-            {% elif current_user.role == 'teacher' %}
-            <a href="{{ url_for('teacher.dashboard') }}"
-                class="{{ 'nav-active' if request.endpoint == 'teacher.dashboard' else '' }}">আমার Dashboard</a>
-            {% endif %}
-
-            <button onclick="toggleTheme()" id="theme-toggle-btn" class="theme-btn"
-                title="Toggle Light/Dark Mode">☀️</button>
-
-            <a href="{{ url_for('auth.logout') }}" class="logout-btn">Logout</a>
-        </div>
-    </nav>
-    {% endif %}
-
+        <a href="{{ url_for('admin.upload_students') }}"
+            class="{{ 'nav-active' if request.endpoint == 'admin.upload_students' else '' }}">Student List</a>
+        <a href="{{ url_for('admin.unassigned_attendance') }}">Unassigned Data</a>
+        <a href="{{ url_for('admin.change_password') }}"
+            class="{{ 'nav-active' if request.endpoint == 'admin.change_password' else '' }}">Change Password</a>
+        {% elif current_user.role == 'student' %}
+        <a href="{{ url_for('student.my_courses') }}"
+            class="{{ 'nav-active' if request.endpoint == 'student.my_courses' else '' }}">আমার Attendance</a>
+        {% elif current_user.role == 'teacher' %}
+        <a href="{{ url_for('teacher.dashboard') }}"
+            class="{{ 'nav-active' if request.endpoint == 'teacher.dashboard' else '' }}">আমার Dashboard</a>
+        {% endif %}
+        <button onclick="toggleTheme()" id="theme-toggle-btn" class="theme-btn"
+            title="Toggle Light/Dark Mode">☀️</button>
+        <a href="{{ url_for('auth.logout') }}" class="logout-btn">Logout</a>
+    </div>
+</nav>
+{% endif %}
     <div class="container">
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% for category, message in messages %}

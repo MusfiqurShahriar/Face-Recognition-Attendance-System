@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>🔗 Unassigned Attendance পুনরায় যুক্ত করুন</h2>
+<p class="page-sub" style="color:var(--text-muted); margin-bottom:20px;">
+    যেসব attendance রেকর্ডে কোনো course যুক্ত নেই, সেগুলো এখান থেকে কোনো course-এর সাথে assign করুন
+</p>
+
+<form method="POST">
+    <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:20px; max-width:600px; margin-bottom:20px;">
+        <h3 style="margin-bottom:14px;">তারিখ সিলেক্ট করুন</h3>
+        <div style="max-height:300px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; padding:10px;">
+            {% for date, count in orphan_dates %}
+            <label style="display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--border);">
+                <input type="checkbox" name="dates" value="{{ date }}">
+                {{ date }} — {{ count }} টি রেকর্ড
+            </label>
+            {% endfor %}
+            {% if orphan_dates|length == 0 %}
+            <p style="color:var(--text-muted); text-align:center;">কোনো unassigned attendance নেই 🎉</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:20px; max-width:600px;">
+        <h3 style="margin-bottom:14px;">কোন Course-এর সাথে যুক্ত করবেন</h3>
+        <select name="course_id" required
+            style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:8px 12px; color:var(--text-primary); width:100%; margin-bottom:14px;">
+            <option value="">-- Course সিলেক্ট করুন --</option>
+            {% for c in courses %}
+            <option value="{{ c.id }}">{{ c.course_code }} — {{ c.course_name }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn-primary" style="width:100%; padding:10px;">Assign করো</button>
+    </div>
+</form>
+
+{% endblock %}

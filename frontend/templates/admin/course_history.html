@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="tabs-container" style="margin-bottom: 15px;">
+    <a href="{{ url_for('admin.course_dashboard', session_id=session_id, course_id=course.id) }}" class="tab-btn">←
+        Course Dashboard এ ফিরুন</a>
+</div>
+
+<h2>{{ course.course_name }} ({{ course.course_code }}) — Attendance History</h2>
+
+<div style="margin: 15px 0;">
+    <a href="{{ url_for('admin.course_export_history', session_id=session_id, course_id=course.id) }}"
+        class="btn-success">📥 Download History</a>
+</div>
+
+<div class="tabs-container" style="margin-top: 20px;">
+    <button class="tab-btn active" onclick="switchRecordTab(event, 'student-records', 'student')">👨‍🎓 Students ({{
+        student_records|length }})</button>
+    <button class="tab-btn" onclick="switchRecordTab(event, 'teacher-records', 'teacher')">🧑‍🏫 Teachers ({{
+        teacher_records|length }})</button>
+</div>
+
+<div id="student-records" class="record-tab-content active" style="display: block;">
+    <div class="table-wrap">
+        <table class="attendance-table" style="border-left: 4px solid var(--success);">
+            <thead>
+                <tr>
+                    <th>তারিখ</th>
+                    <th>Roll</th>
+                    <th class="text-left">নাম</th>
+                    <th>সময়</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set current_date = namespace(value="") %}
+                {% for r in student_records %}
+                {% if r.date != current_date.value %}
+                {% set current_date.value = r.date %}
+                <tr class="date-separator">
+                    <td><span class="date-label">{{ r.date }}</span></td>
+                    <td colspan="4"></td>
+                </tr>
+                {% endif %}
+                <tr>
+                    <td></td>
+                    <td>{{ r.roll_number }}</td>
+                    <td class="text-left">{{ r.name }}</td>
+                    <td>{{ r.time }}</td>
+                    <td>
+                        <span class="badge badge-{{ r.status.lower().replace(' ', '-') }}">
+                            {{ r.status }}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not student_records %}
+                <tr>
+                    <td colspan="5" style="text-align:center;color:var(--text-muted)">
+                        কোনো রেকর্ড নেই
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="teacher-records" class="record-tab-content" style="display: none;">
+    <div class="table-wrap">
+        <table class="attendance-table" style="border-left: 4px solid #8b5cf6;">
+            <thead>
+                <tr>
+                    <th>তারিখ</th>
+                    <th class="text-left">নাম</th>
+                    <th>সময়</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set current_date_t = namespace(value="") %}
+                {% for r in teacher_records %}
+                {% if r.date != current_date_t.value %}
+                {% set current_date_t.value = r.date %}
+                <tr class="date-separator">
+                    <td><span class="date-label">{{ r.date }}</span></td>
+                    <td colspan="3"></td>
+                </tr>
+                {% endif %}
+                <tr>
+                    <td></td>
+                    <td class="text-left">{{ r.name }}</td>
+                    <td>{{ r.time }}</td>
+                    <td><span class="badge badge-on-time">Present</span></td>
+                </tr>
+                {% endfor %}
+                {% if not teacher_records %}
+                <tr>
+                    <td colspan="4" style="text-align:center;color:var(--text-muted)">
+                        কোনো রেকর্ড নেই
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    function switchRecordTab(evt, tabId, type) {
+        var tabContents = document.getElementsByClassName("record-tab-content");
+        for (var i = 0; i < tabContents.length; i++) {
+            tabContents[i].classList.remove("active");
+            tabContents[i].style.display = "none";
+        }
+        var tabButtons = document.getElementsByClassName("tab-btn");
+        for (var i = 0; i < tabButtons.length; i++) {
+            tabButtons[i].classList.remove("active");
+        }
+        document.getElementById(tabId).classList.add("active");
+        document.getElementById(tabId).style.display = "block";
+        evt.currentTarget.classList.add("active");
+    }
+</script>
+{% endblock %}

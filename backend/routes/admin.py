@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from database import SessionLocal, Attendance, load_students_from_excel, load_teachers_from_excel, get_admin_from_env
 from sqlalchemy import func
 from datetime import datetime
-from database import Session, Course, Enrollment
+from database import Session, Course, Enrollment, CameraCommand
 import pandas as pd
 import io
 import os
@@ -38,6 +38,125 @@ def clear_dashboard_cache():
     global _DASHBOARD_CACHE, _DASHBOARD_CACHE_TIME
     _DASHBOARD_CACHE = {}
     _DASHBOARD_CACHE_TIME = 0
+
+@admin_bp.route("/session/<int:session_id>/course/add", methods=["POST"])
+@login_required
+@admin_required
+def add_course(session_id):
+    db = SessionLocal()
+    try:
+        course_code = request.form.get("course_code", "").strip()
+        course_name = request.form.get("course_name", "").strip()
+        section = request.form.get("section", "").strip()
+
+        if not course_code or not course_name:
+            flash("Course Code এবং Course Name অবশ্যই দিতে হবে!", "error")
+        else:
+            existing = db.query(Course).filter(
+                Course.session_id == session_id,
+                Course.course_code == course_code,
+                Course.section == section
+            ).first()
+
+            if existing:
+                flash("এই Course Code ইতিমধ্যে এই Session-এ আছে!", "error")
+            else:
+                new_course = Course(
+                    session_id=session_id,
+                    course_code=course_code,
+                    course_name=course_name,
+                    section=section
+                )
+                db.add(new_course)
+                db.commit()
+                flash(f"Course '{course_code}' যোগ হয়েছে!", "success")
+    finally:
+        db.close()
+
+    return redirect(url_for("admin.session_courses", session_id=session_id))
+
+@admin_bp.route("/course/<int:course_id>/edit", methods=["POST"])
+@login_required
+@admin_required
+def edit_course(course_id):
+    db = SessionLocal()
+    try:
+        course = db.query(Course).get(course_id)
+        if not course:
+            flash("Course পাওয়া যায়নি!", "error")
+            return redirect(url_for("admin.dashboard"))
+
+        session_id = course.session_id
+
+        course.course_code = request.form.get("course_code", "").strip()
+        course.course_name = request.form.get("course_name", "").strip()
+        course.section = request.form.get("section", "").strip()
+
+        db.commit()
+        flash("Course আপডেট হয়েছে!", "success")
+    finally:
+        db.close()
+
+    return redirect(url_for("admin.session_courses", session_id=session_id))
+
+
+@admin_bp.route("/course/<int:course_id>/delete", methods=["POST"])
+@login_required
+@admin_required
+def delete_course(course_id):
+    db = SessionLocal()
+    try:
+        course = db.query(Course).get(course_id)
+        if not course:
+            flash("Course পাওয়া যায়নি!", "error")
+            return redirect(url_for("admin.dashboard"))
+
+        session_id = course.session_id
+
+        # সংশ্লিষ্ট enrollment মুছে ফেলা হচ্ছে
+        db.query(Enrollment).filter(Enrollment.course_id == course_id).delete()
+
+        # সংশ্লিষ্ট camera command মুছে ফেলা হচ্ছে (নতুন যোগ করা লাইন)
+        db.query(CameraCommand).filter(CameraCommand.course_id == course_id).delete()
+
+        db.delete(course)
+        db.commit()
+        flash("Course এবং সংশ্লিষ্ট enrollment মুছে ফেলা হয়েছে!", "success")
+    finally:
+        db.close()
+
+    return redirect(url_for("admin.session_courses", session_id=session_id))
+
+@admin_bp.route("/unassigned-attendance", methods=["GET", "POST"])
+@login_required
+@admin_required
+def unassigned_attendance():
+    db = SessionLocal()
+    try:
+        if request.method == "POST":
+            course_id = request.form.get("course_id")
+            selected_dates = request.form.getlist("dates")
+
+            if not course_id or not selected_dates:
+                flash("Course এবং অন্তত একটি তারিখ সিলেক্ট করুন!", "error")
+            else:
+                updated = db.query(Attendance).filter(
+                    Attendance.course_id.is_(None),
+                    Attendance.date.in_(selected_dates)
+                ).update({Attendance.course_id: course_id}, synchronize_session=False)
+                db.commit()
+                flash(f"{updated} টি রেকর্ড সফলভাবে assign করা হয়েছে!", "success")
+
+        # orphan record গুলো date অনুযায়ী গ্রুপ করে দেখানো
+        orphan_dates = db.query(
+            Attendance.date, func.count(Attendance.id)
+        ).filter(Attendance.course_id.is_(None)).group_by(Attendance.date).order_by(Attendance.date.desc()).all()
+
+        all_courses = db.query(Course).order_by(Course.session_id, Course.course_code).all()
+    finally:
+        db.close()
+
+    return render_template("admin/unassigned_attendance.html", orphan_dates=orphan_dates, courses=all_courses)
 
 @admin_bp.route("/session/<int:session_id>/course/<int:course_id>/dashboard")
 @login_required
@@ -463,6 +582,214 @@ def export_excel():
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
+@admin_bp.route("/session/<int:session_id>/course/<int:course_id>/history")
+@login_required
+@admin_required
+def course_history(session_id, course_id):
+    db = SessionLocal()
+    try:
+        course_obj = db.query(Course).get(course_id)
+
+        records = db.query(Attendance).filter(
+            Attendance.course_id == course_id
+        ).order_by(Attendance.date, Attendance.roll_number).all()
+
+        student_records = [r for r in records if r.role == "student"]
+        teacher_records = [r for r in records if r.role == "teacher"]
+    finally:
+        db.close()
+
+    return render_template("admin/course_history.html",
+        course=course_obj,
+        session_id=session_id,
+        student_records=student_records,
+        teacher_records=teacher_records
+    )
+
+
+@admin_bp.route("/session/<int:session_id>/course/<int:course_id>/percentage")
+@login_required
+@admin_required
+def course_percentage(session_id, course_id):
+    db = SessionLocal()
+    try:
+        course_obj = db.query(Course).get(course_id)
+
+        enrolled = db.query(Enrollment).filter(Enrollment.course_id == course_id).all()
+
+        total_days = db.query(Attendance.date).filter(
+            Attendance.course_id == course_id,
+            Attendance.role == "student"
+        ).distinct().count()
+
+        attendance_results = db.query(Attendance.roll_number, func.count(Attendance.id))\
+            .filter(Attendance.course_id == course_id, Attendance.role == "student")\
+            .group_by(Attendance.roll_number).all()
+
+        attendance_counts = {row[0]: row[1] for row in attendance_results}
+
+        result = []
+        for e in enrolled:
+            present_count = attendance_counts.get(e.roll_number, 0)
+            percentage = round((present_count / total_days * 100), 1) if total_days > 0 else 0
+            result.append({
+                "roll": e.roll_number,
+                "name": e.name,
+                "present": present_count,
+                "total": total_days,
+                "percentage": percentage
+            })
+
+        result = sorted(result, key=lambda x: x["roll"] or "")
+    finally:
+        db.close()
+
+    return render_template("admin/course_percentage.html",
+        course=course_obj,
+        session_id=session_id,
+        result=result
+    )
+
+@admin_bp.route("/session/<int:session_id>/course/<int:course_id>/export/percentage")
+@login_required
+@admin_required
+def course_export_percentage(session_id, course_id):
+    from openpyxl.styles import PatternFill, Font
+    from openpyxl.utils import get_column_letter
+
+    db = SessionLocal()
+    try:
+        course_obj = db.query(Course).get(course_id)
+        enrolled = db.query(Enrollment).filter(Enrollment.course_id == course_id).all()
+
+        total_days = db.query(Attendance.date).filter(
+            Attendance.course_id == course_id,
+            Attendance.role == "student"
+        ).distinct().count()
+
+        attendance_results = db.query(Attendance.roll_number, func.count(Attendance.id))\
+            .filter(Attendance.course_id == course_id, Attendance.role == "student")\
+            .group_by(Attendance.roll_number).all()
+        attendance_counts = {row[0]: row[1] for row in attendance_results}
+
+        result = []
+        for e in enrolled:
+            present_count = attendance_counts.get(e.roll_number, 0)
+            percentage = round((present_count / total_days * 100), 1) if total_days > 0 else 0
+            result.append({
+                "roll": e.roll_number,
+                "name": e.name,
+                "present": present_count,
+                "total": total_days,
+                "percentage": percentage
+            })
+        result = sorted(result, key=lambda x: x["roll"] or "")
+
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            wb = writer.book
+            ws = wb.create_sheet("Percentage")
+            headers = ["Roll", "Name", "Present", "Total", "Percentage"]
+            ws.append(headers)
+
+            header_fill = PatternFill(start_color="2C3E50", end_color="2C3E50", fill_type="solid")
+            header_font = Font(color="FFFFFF", bold=True)
+            for col in range(1, len(headers) + 1):
+                cell = ws.cell(row=1, column=col)
+                cell.fill = header_fill
+                cell.font = header_font
+
+            for row_idx, r in enumerate(result, start=2):
+                ws.cell(row=row_idx, column=1, value=r["roll"])
+                ws.cell(row=row_idx, column=2, value=r["name"])
+                ws.cell(row=row_idx, column=3, value=r["present"])
+                ws.cell(row=row_idx, column=4, value=r["total"])
+                ws.cell(row=row_idx, column=5, value=f'{r["percentage"]}%')
+
+            for col in range(1, len(headers) + 1):
+                ws.column_dimensions[get_column_letter(col)].width = 20
+
+            if "Sheet" in wb.sheetnames:
+                wb.remove(wb["Sheet"])
+
+        output.seek(0)
+        filename = f"{course_obj.course_code}_percentage.xlsx"
+    finally:
+        db.close()
+
+    return send_file(
+        output,
+        download_name=filename,
+        as_attachment=True,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+
+@admin_bp.route("/session/<int:session_id>/course/<int:course_id>/export/history")
+@login_required
+@admin_required
+def course_export_history(session_id, course_id):
+    from openpyxl.styles import PatternFill, Font
+    from openpyxl.utils import get_column_letter
+
+    db = SessionLocal()
+    try:
+        course_obj = db.query(Course).get(course_id)
+
+        records = db.query(Attendance).filter(
+            Attendance.course_id == course_id,
+            Attendance.role == "student"
+        ).order_by(Attendance.date, Attendance.roll_number).all()
+
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            wb = writer.book
+            ws = wb.create_sheet("History")
+            headers = ["Date", "Roll", "Name", "Time", "Status"]
+            ws.append(headers)
+
+            header_fill = PatternFill(start_color="2C3E50", end_color="2C3E50", fill_type="solid")
+            header_font = Font(color="FFFFFF", bold=True)
+            for col in range(1, len(headers) + 1):
+                cell = ws.cell(row=1, column=col)
+                cell.fill = header_fill
+                cell.font = header_font
+
+            current_date = None
+            row_num = 2
+            for r in records:
+                if r.date != current_date:
+                    current_date = r.date
+                    date_cell = ws.cell(row=row_num, column=1, value=r.date)
+                    date_cell.font = Font(bold=True, size=12, color="000000")
+                    date_cell.fill = PatternFill(start_color="E8E4FF", end_color="E8E4FF", fill_type="solid")
+                    ws.row_dimensions[row_num].height = 20
+                    row_num += 1
+
+                ws.cell(row=row_num, column=1, value="")
+                ws.cell(row=row_num, column=2, value=r.roll_number)
+                ws.cell(row=row_num, column=3, value=r.name)
+                ws.cell(row=row_num, column=4, value=r.time)
+                ws.cell(row=row_num, column=5, value=r.status)
+                row_num += 1
+
+            for col in range(1, len(headers) + 1):
+                ws.column_dimensions[get_column_letter(col)].width = 18
+
+            if "Sheet" in wb.sheetnames:
+                wb.remove(wb["Sheet"])
+
+        output.seek(0)
+        filename = f"{course_obj.course_code}_history.xlsx"
+    finally:
+        db.close()
+
+    return send_file(
+        output,
+        download_name=filename,
+        as_attachment=True,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 @admin_bp.route("/send-notifications", methods=["POST"])
 @login_required
@@ -504,14 +831,16 @@ def upload_students():
                 flash("কোন Session এর জন্য sheet, সেটা সিলেক্ট করুন!", "error")
                 return render_template("admin/upload_students.html", sessions=sessions)
 
-            # আগের মতোই students.xlsx সেভ (অপরিবর্তিত)
+            session_obj = db.query(Session).get(session_id)
+            session_name = session_obj.name  # যেমন "2022-23"
+
+            # session নাম দিয়ে আলাদা ফাইলে সেভ
             save_path = os.path.normpath(os.path.join(
                 os.path.dirname(os.path.abspath(__file__)),
-                "..", "..", "database", "students.xlsx"
+                "..", "..", "database", f"students_{session_name}.xlsx"
             ))
             file.save(save_path)
 
-            # নতুন: এই sheet পড়ে bulk enrollment করা
             import pandas as pd
             df = pd.read_excel(save_path)
 
@@ -549,14 +878,13 @@ def upload_students():
 
             db.commit()
 
-            flash(f"Student list update হয়েছে! {enrolled_count} নতুন enrollment হয়েছে, {skipped_count} আগে থেকেই ছিল।", "success")
+            flash(f"'{session_name}' এর Student list update হয়েছে! {enrolled_count} নতুন enrollment হয়েছে, {skipped_count} আগে থেকেই ছিল।", "success")
             return redirect(url_for("admin.dashboard"))
 
     finally:
         db.close()
 
     return render_template("admin/upload_students.html", sessions=sessions)
-
 
 @admin_bp.route("/change-password", methods=["GET", "POST"])
 @login_required

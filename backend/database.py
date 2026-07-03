@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship, declarative_base, sessionmaker
 from datetime import datetime
 import pandas as pd
 import os
+import glob
 from dotenv import load_dotenv, find_dotenv
 
 # এটি প্রজেক্টের যেকোনো জায়গা থেকে .env ফাইল ঠিকই খুঁজে নেবে
@@ -20,10 +21,10 @@ else:
     
 # EXCEL_PATH = "../database/students.xlsx"
 # TEACHERS_EXCEL_PATH = "../database/teachers.xlsx"
-
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXCEL_PATH = os.path.join(BASE_DIR, "database", "students.xlsx")
 TEACHERS_EXCEL_PATH = os.path.join(BASE_DIR, "database", "teachers.xlsx")
+STUDENTS_FOLDER = os.path.dirname(EXCEL_PATH)
 
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
@@ -153,51 +154,60 @@ def get_cr_by_email(email):
 def load_students_from_excel():
     global _STUDENT_CACHE, _STUDENT_CACHE_TIME
 
-    if not os.path.exists(EXCEL_PATH):
-        print(f"[ERROR] {EXCEL_PATH} পাওয়া যায়নি")
+    pattern = os.path.join(STUDENTS_FOLDER, "students_*.xlsx")
+    all_files = glob.glob(pattern)
+
+    if not all_files:
+        print(f"[ERROR] কোনো students Excel ফাইল পাওয়া যায়নি")
         return []
 
-    # ফাইলের লাস্ট মডিফাই হওয়ার সময় বের করা
-    current_mtime = os.path.getmtime(EXCEL_PATH)
+    latest_mtime = max(os.path.getmtime(f) for f in all_files)
 
-    # যদি ক্যাশ থাকে এবং ফাইল পরিবর্তন না হয়ে থাকে, তবে সরাসরি ক্যাশ থেকে রিটার্ন করো (No Pandas needed!)
-    if _STUDENT_CACHE is not None and current_mtime == _STUDENT_CACHE_TIME:
+    if _STUDENT_CACHE is not None and latest_mtime == _STUDENT_CACHE_TIME:
         return _STUDENT_CACHE
 
-    # যদি ক্যাশ না থাকে বা নতুন ফাইল আপলোড হয়, কেবল তখনই রিড করো
-    df = pd.read_excel(EXCEL_PATH)
-    df.columns = df.columns.str.strip().str.lower()
-
-    if "session" in df.columns:
-        session_col = "session"
-    elif "section" in df.columns:
-        session_col = "section"
-    else:
-        session_col = None
-
     students = []
-    for _, row in df.iterrows():
-        session_val = str(row[session_col]).strip() if session_col else ""
+    seen_rolls = set()
 
-        guardian = str(row.get("guardian_email", "")).strip()
-        if guardian.lower() == "nan":
-            guardian = ""
+    for file_path in all_files:
+        try:
+            df = pd.read_excel(file_path)
+            df.columns = df.columns.str.strip().str.lower()
+        except Exception as e:
+            print(f"[WARNING] {file_path} পড়া যায়নি: {e}")
+            continue
 
-        students.append({
-            "name": str(row["name"]).strip(),
-            "roll": str(row["roll"]).strip(),
-            "section": session_val,
-            "login_email": str(row["login_email"]).strip(),
-            "login_password": str(row["login_password"]).strip(),
-            "guardian_email": guardian,
-            "semester": str(row["semester"]).strip()
-        })
-    
-    # মেমরিতে ডেটা এবং সময় সেভ করে রাখা
+        if "session" in df.columns:
+            session_col = "session"
+        elif "section" in df.columns:
+            session_col = "section"
+        else:
+            session_col = None
+
+        for _, row in df.iterrows():
+            roll = str(row.get("roll", "")).strip()
+            if not roll or roll in seen_rolls:
+                continue
+
+            session_val = str(row[session_col]).strip() if session_col else ""
+            guardian = str(row.get("guardian_email", "")).strip()
+            if guardian.lower() == "nan":
+                guardian = ""
+
+            students.append({
+                "name": str(row.get("name", "")).strip(),
+                "roll": roll,
+                "section": session_val,
+                "login_email": str(row.get("login_email", "")).strip(),
+                "login_password": str(row.get("login_password", "")).strip(),
+                "guardian_email": guardian,
+                "semester": str(row.get("semester", "")).strip()
+            })
+            seen_rolls.add(roll)
+
     _STUDENT_CACHE = students
-    _STUDENT_CACHE_TIME = current_mtime
+    _STUDENT_CACHE_TIME = latest_mtime
     return students
-
 
 def load_teachers_from_excel():
     global _TEACHER_CACHE, _TEACHER_CACHE_TIME
