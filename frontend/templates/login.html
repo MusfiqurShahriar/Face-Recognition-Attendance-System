@@ -1,25 +1,21 @@
 <!DOCTYPE html>
 <html lang="bn">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login — Face Recognition Attendance System</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-
 <body>
     <div class="login-container">
         <div class="login-box">
             <h2>👤 Face Recognition Attendance System</h2>
             <p class="login-subtitle">Login করুন</p>
-
             {% with messages = get_flashed_messages(with_categories=true) %}
             {% for category, message in messages %}
             <div class="alert alert-{{ category }}">{{ message }}</div>
             {% endfor %}
             {% endwith %}
-
             <form method="POST">
                 <div class="form-group">
                     <label>Email</label>
@@ -31,23 +27,20 @@
                         <input type="password" name="password" id="password" placeholder="Password" required
                             style="width:100%; padding-right:44px">
                         <span id="toggle-icon" onclick="togglePassword()" style="position:absolute; right:12px; top:50%;
-                                 transform:translateY(-50%); cursor:pointer;
-                                 font-size:18px; user-select:none">👁</span>
+                                transform:translateY(-50%); cursor:pointer;
+                                font-size:18px; user-select:none">👁</span>
                     </div>
                 </div>
                 <button type="submit" class="btn-primary">Login</button>
             </form>
-
             <p style="text-align:center;margin-top:12px">
                 <a href="{{ url_for('auth.forgot_password') }}" style="color:var(--accent);font-size:13px">
                     Password ভুলে গেছেন?
                 </a>
             </p>
-
             <p class="login-hint">Student password = Roll Number</p>
         </div>
     </div>
-
     <script>
         function togglePassword() {
             var input = document.getElementById('password');
@@ -62,5 +55,4 @@
         }
     </script>
 </body>
-
 </html>

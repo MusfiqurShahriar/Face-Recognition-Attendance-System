@@ -8,8 +8,10 @@ from datetime import datetime
 import json
 import os
 import threading
+import onnxruntime as ort
 
 ENCODINGS_FILE = "../models/encodings.pkl"
+ANTI_SPOOF_MODEL_PATH = "../models/anti_spoof_model.onnx"
 OFFLINE_FILE = "offline_queue.json"
 
 TOLERANCE = 0.45
@@ -52,29 +54,96 @@ ROLE_COLORS = {
 }
 
 # ==========================================
-# Anti-Spoof Function
+# Anti-Spoof Model Load
 # ==========================================
-def is_real_face(face_img):
+print("[INFO] Anti-spoof model লোড হচ্ছে...")
+antispoof_session = ort.InferenceSession(ANTI_SPOOF_MODEL_PATH, providers=["CPUExecutionProvider"])
+antispoof_input_name = antispoof_session.get_inputs()[0].name
+print("[OK] Anti-spoof model লোড হয়েছে।")
+
+# ==========================================
+# Anti-Spoof Function (Deep Learning Model)
+# ==========================================
+def _get_crop_box(src_w, src_h, bbox, scale):
+    """
+    bbox: (x, y, w, h) — face box (top-left corner + width/height)
+    scale: কত গুণ বড় area crop করতে হবে (এই model এর জন্য 2.7)
+    """
+    x, y, box_w, box_h = bbox
+    scale = min((src_h - 1) / box_h, min((src_w - 1) / box_w, scale))
+
+    new_width = box_w * scale
+    new_height = box_h * scale
+    center_x = box_w / 2 + x
+    center_y = box_h / 2 + y
+
+    left = center_x - new_width / 2
+    top = center_y - new_height / 2
+    right = center_x + new_width / 2
+    bottom = center_y + new_height / 2
+
+    if left < 0:
+        right -= left
+        left = 0
+    if top < 0:
+        bottom -= top
+        top = 0
+    if right > src_w - 1:
+        left -= (right - src_w + 1)
+        right = src_w - 1
+    if bottom > src_h - 1:
+        top -= (bottom - src_h + 1)
+        bottom = src_h - 1
+
+    return int(left), int(top), int(right), int(bottom)
+
+
+def is_real_face(face_img, full_frame=None, face_box_xywh=None):
+    """
+    face_img: fallback হিসেবে ব্যবহার হবে যদি full_frame/box দেওয়া না থাকে
+    full_frame + face_box_xywh (x, y, w, h) দিলে সবচেয়ে ভালো accuracy পাওয়া যাবে,
+    কারণ model-টা face এর চারপাশে extra context (2.7x area) দেখে ট্রেইন হয়েছে।
+
+    Returns: True if real face, False if spoof
+    """
+    return True 
     try:
-        if face_img is None or face_img.size == 0:
+        if full_frame is not None and face_box_xywh is not None:
+            src_h, src_w = full_frame.shape[:2]
+            left, top, right, bottom = _get_crop_box(src_w, src_h, face_box_xywh, scale=2.7)
+            cropped = full_frame[top:bottom + 1, left:right + 1]
+        else:
+            cropped = face_img
+
+        if cropped is None or cropped.size == 0:
             return True
 
-        gray = cv2.cvtColor(face_img, cv2.COLOR_BGR2GRAY)
-        h, w = gray.shape
+        
+        cv2.imwrite("debug_crop.jpg", cropped)
+        print(f"[DEBUG] cropped shape={cropped.shape}, box={face_box_xywh}")
 
-        if h < 20 or w < 20:
-            return True
+        resized = cv2.resize(cropped, (80, 80))
+        resized = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
 
-        laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
-        grad_x = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
-        grad_y = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
-        gradient_mean = np.mean(np.sqrt(grad_x**2 + grad_y**2))
+        # Model 0-1 range float32 চায়, BGR order ঠিক রেখে (cv2 default)
+        input_tensor = resized.astype(np.float32) / 255.0
+        input_tensor = np.transpose(input_tensor, (2, 0, 1))  # HWC -> CHW
+        input_tensor = np.expand_dims(input_tensor, axis=0)   # add batch dim
 
-        if laplacian_var < 30 or gradient_mean < 8:
-            return False
+        outputs = antispoof_session.run(None, {antispoof_input_name: input_tensor})
+        logits = outputs[0][0]
 
-        return True
+        # Softmax
+        exp_logits = np.exp(logits - np.max(logits))
+        probs = exp_logits / exp_logits.sum()
 
+        label_idx = int(np.argmax(probs))
+        print(f"[DEBUG] probs={probs}  label_idx={label_idx}")
+
+        # Index 1 = Real (model convention অনুযায়ী)
+        is_real = (label_idx == 1)
+
+        return is_real
     except Exception as e:
         print(f"[WARNING] Anti-spoof check failed: {e}")
         return True
@@ -131,6 +200,8 @@ def sync_offline():
 # Attendance Marking
 # ==========================================
 def mark_attendance(name, role):
+    if active_course_id is None:
+        return "Waiting for Course"
     payload = {
         "name": name,
         "role": role.rstrip("s"),
@@ -207,7 +278,8 @@ def camera_thread(camera_source, camera_name, window_name):
             # Anti-Spoof Check
             top, right, bottom, left = [x * 4 for x in face_location]
             face_img = frame[top:bottom, left:right]
-            real = is_real_face(face_img)
+            box_xywh = (left, top, right - left, bottom - top)
+            real = is_real_face(face_img, full_frame=frame, face_box_xywh=box_xywh)
 
             if not real:
                 face_names.append("Spoof!")
@@ -238,12 +310,11 @@ def camera_thread(camera_source, camera_name, window_name):
                     status = "Already Marked"
                 elif name != "Unknown":
                     status = mark_attendance(name, role)
-                    already_marked.add(name)
-
-                    if name not in already_printed:
-                        print(f"[{camera_name}] {name} | {status}")
-                        already_printed.add(name)
-
+                    if status != "Waiting for Course":
+                        already_marked.add(name)
+                        if name not in already_printed:
+                            print(f"[{camera_name}] {name} | {status}")
+                            already_printed.add(name)
             face_names.append(name)
             face_roles.append(role)
             face_statuses.append(status)

@@ -1,14 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
-
 <div class="tabs-container" style="margin-bottom:15px;">
     <a href="{{ url_for('cr.dashboard') }}" class="tab-btn">← Dashboard এ ফিরুন</a>
 </div>
-
 <h2>{{ course.course_name }} ({{ course.course_code }}) — Attendance Report</h2>
 <p class="page-sub" style="color:var(--text-muted); margin-bottom:20px;">
     মোট ক্লাস হয়েছে: {{ total_days }} দিন
 </p>
+<div style="margin: 15px 0;">
+    <a href="{{ url_for('cr.course_export', course_id=course.id) }}" class="btn-success">📥 Download Percentage</a>
+</div>
 
 <div style="border-left:4px solid var(--accent); border-radius:8px; overflow:hidden;">
     <table class="attendance-table" style="margin-top:0;">
@@ -43,5 +44,4 @@
         </tbody>
     </table>
 </div>
-
 {% endblock %}

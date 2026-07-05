@@ -3,10 +3,8 @@
 <div class="tabs-container" style="margin-bottom: 15px;">
     <a href="{{ url_for('student.my_courses') }}" class="tab-btn">← আমার সব Course</a>
 </div>
-
 <h2>{{ course.course_name }} ({{ course.course_code }}) — আমার Attendance</h2>
 <p class="page-sub">Roll: {{ current_user.roll_number }} | Section: {{ course.section }}</p>
-
 <div class="stats-grid">
     <div class="stat-card present">
         <div class="stat-number">{{ percentage }}%</div>
@@ -75,7 +73,7 @@
 <script>
     const ctx = document.getElementById('studentAttendanceChart').getContext('2d');
 
-    // ব্যাকএন্ড থেকে ডেটা নেওয়া হচ্ছে
+    // ব্যাকএন্ড থেকে ডেটা নেওয়ার জন্য
         const onTime = Number("{{ on_time }}") || 0;
         const late = Number("{{ late }}") || 0;
         const absent = (Number("{{ total_days }}") || 0) - (Number("{{ present_count }}") || 0);
@@ -102,7 +100,7 @@
         },
         options: {
             responsive: true,
-            cutout: '75%', // মাঝখানের ফাঁকা জায়গার পরিমাণ
+            cutout: '75%', 
             plugins: {
                 legend: {
                     position: 'bottom',
@@ -113,7 +111,7 @@
                             family: "'Segoe UI', Arial, sans-serif",
                             size: 13
                         },
-                        usePointStyle: true // লেজেন্ড আইকন গোল করার জন্য
+                        usePointStyle: true
                     }
                 },
                 tooltip: {

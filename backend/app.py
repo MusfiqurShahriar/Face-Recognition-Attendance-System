@@ -33,7 +33,6 @@ class LoginUser:
         self.is_authenticated = True
         self.is_active = True
         self.is_anonymous = False
-
     def get_id(self):
         return f"{self.role}:{self.email}"
 
@@ -66,9 +65,7 @@ def skip_ngrok_warning(response):
     response.headers["ngrok-skip-browser-warning"] = "69420"
     return response
 
-# ==========================================
 # API Endpoint for Remote Face Recognition
-# ==========================================
 @app.route("/api/mark-attendance", methods=["POST"])
 def api_mark_attendance():
     data = request.get_json()
@@ -92,6 +89,7 @@ def api_mark_attendance():
         return jsonify({"status": "success", "status_message": result})
     else:
         return jsonify({"status": "error", "message": "Failed to mark attendance"})
+
 @app.route("/api/camera-command/<camera_code>", methods=["GET"])
 def get_camera_command(camera_code):
     from database import SessionLocal, Camera, CameraCommand, Course
@@ -124,11 +122,7 @@ def get_camera_command(camera_code):
     finally:
         db.close()
 
-# ==========================================
 # SMART BULK & MANUAL ATTENDANCE CONTROLLER
-# ==========================================
-# আপনার কোড স্ট্রাকচার অনুযায়ী এই রাউটটি /routes/admin.py ফাইলে থাকতে পারে। 
-# যদি সেখানে থাকে, তবে এই ফাংশনটি শুধু কেটে নিয়ে সেখানে বসিয়ে দিন।
 @app.route("/admin/manual-attendance", methods=["POST"])
 def manual_attendance_fallback():
     from database import SessionLocal, Attendance, load_students_from_excel, load_teachers_from_excel
@@ -169,8 +163,6 @@ def manual_attendance_fallback():
                     count += 1
             db.commit()
             flash(f"সফলভাবে মোট {count} জন শিক্ষার্থীর বাল্ক হাজিরা নেওয়া হয়েছে।", "success")
-        
-        # ২. সিঙ্গেল স্টুডেন্ট বা টিচারের হাজিরা
         # ২. সিঙ্গেল স্টুডেন্ট বা টিচারের হাজিরা
         else:
             target_name = identifier
@@ -181,7 +173,7 @@ def manual_attendance_fallback():
 
             if role == "student":
                 all_students = load_students_from_excel()
-                # স্মার্ট সার্চ: রোল অথবা নাম যেকোনো একটা দিলেই স্টুডেন্টকে খুঁজে বের করবে
+                # স্মার্ট সার্চ
                 student_match = next((s for s in all_students if str(s.get("roll")) == identifier or s.get("name").lower() == identifier.lower()), None)
                 
                 if student_match:
@@ -190,7 +182,7 @@ def manual_attendance_fallback():
                     target_section = student_match.get("section", "")
                     target_semester = student_match.get("semester", "")
                 else:
-                    # যদি ভুল নাম বা রোল দেয়, তবে ডেটা সেভ না করে এরর মেসেজ দেবে
+                    # ভুল নাম বা রোল দিলে,ডেটা সেভ না করে এরর মেসেজ দেবে
                     flash(f"দুঃখিত, '{identifier}' নামে বা রোলে কোনো স্টুডেন্ট ডাটাবেজে পাওয়া যায়নি!", "danger")
                     return redirect("/admin/dashboard")
             else:
@@ -257,8 +249,6 @@ def keep_alive():
         return f"Error waking up DB: {str(e)}", 500
     finally:
         db.close()
-
-
 from flask_login import login_required
 
 @app.route('/about')

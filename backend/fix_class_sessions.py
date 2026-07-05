@@ -11,6 +11,5 @@ def migrate():
             except Exception as e:
                 conn.rollback()
                 print(f"Skip (class_sessions.{col_name}): {e}")
-
 if __name__ == "__main__":
     migrate()

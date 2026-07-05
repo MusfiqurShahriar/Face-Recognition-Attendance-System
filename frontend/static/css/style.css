@@ -4,9 +4,7 @@
     box-sizing: border-box;
 }
 
-/* =========================================================
-   DARK THEME (Default)
-========================================================= */
+/*DARK THEME (Default)*/
 /* :root {
     --bg-primary: #0f1117;
     --bg-secondary: #161b27;
@@ -28,44 +26,29 @@
     --danger-border: #3d1f1f;
 } */
 
-/* =========================================================
-   DARK THEME (Premium Studio / OLED Black)
-========================================================= */
+/*DARK THEME (Premium Studio / OLED Black)*/
 :root {
-    /* Backgrounds: নীলচে কালোর বদলে 'স্টুডিও ব্ল্যাক' যা অনেক বেশি প্রফেশনাল */
     --bg-primary: #0a0a0a;
     --bg-secondary: #141414;
     --bg-card: #1c1c1c;
-
-    /* Borders: আগের চেয়ে অনেক সূক্ষ্ম এবং ক্লিন */
     --border: #2e2e2e;
-
-    /* Typography: নীলচে সাদার বদলে শার্প ও ক্রিস্প অফ-হোয়াইট (OLED-এ দারুণ লাগে) */
     --text-primary: #f5f5f5;
     --text-secondary: #a1a1aa;
     --text-muted: #71717a;
-
-    /* Primary Accent: ভাইব্রেন্ট কিন্তু রুচিশীল 'সিগনেচার ইন্ডিগো' */
     --accent: #4f46e5;
     --accent-hover: #6366f1;
-
-    /* Status Colors: কড়া রঙের বদলে সফট গ্লোয়িং ডার্ক টোন */
     --success: #34d399;
     --success-bg: #022c22;
     --success-border: #064e3b;
-
     --warning: #fbbf24;
     --warning-bg: #422006;
     --warning-border: #713f12;
-
     --danger: #f87171;
     --danger-bg: #450a0a;
     --danger-border: #7f1d1d;
 }
 
-/* =========================================================
-   LIGHT THEME 
-========================================================= */
+/*LIGHT THEME */
 
 /* :root.light-theme {
     --bg-primary: #f4f7fa;
@@ -89,73 +72,50 @@
 } 
 */
 
-/* =========================================================
-   LIGHT THEME (Eye-Pleasing & Soft)
-========================================================= */
-
+/*LIGHT THEME (Eye-Pleasing & Soft)*/
 /* :root.light-theme {
     --bg-primary: #f0f2f5;       
     --bg-secondary: #ffffff;     
     --bg-card: #ffffff;          
-    
     --border: #e2e8f0;           
-    
     --text-primary: #334155;     
     --text-secondary: #64748b;
     --text-muted: #94a3b8;
-    
     --accent: #3b82f6;           
     --accent-hover: #2563eb;
-    
     --success: #059669;
     --success-bg: #ecfdf5;
     --success-border: #a7f3d0;
-    
     --warning: #d97706;
     --warning-bg: #fffbeb;
     --warning-border: #fde68a;
-    
     --danger: #dc2626;
     --danger-bg: #fef2f2;
     --danger-border: #fecaca;
 }
 */
 
-/* =========================================================
-   LIGHT THEME (Ultra-Premium & Minimalist)
-========================================================= */
+/*LIGHT THEME (Ultra-Premium & Minimalist)*/
 :root.light-theme {
-    /* Backgrounds: Apple-এর মতো সিগনেচার 'সিলভার গ্রে' ব্যাকগ্রাউন্ড */
     --bg-primary: #f5f5f7;
     --bg-secondary: #ffffff;
     --bg-card: #ffffff;
-
-    /* Borders: অত্যন্ত সূক্ষ্ম এবং ক্লিন বর্ডার */
     --border: #e5e5ea;
-
-    /* Typography: কড়া কালোর বদলে 'ডিপ রিচ গ্রে' (খুবই প্রিমিয়াম লুক দেয়) */
     --text-primary: #1d1d1f;
     --text-secondary: #86868b;
     --text-muted: #a1a1a6;
-
-    /* Primary Accent: ভাইব্রেন্ট কিন্তু রুচিশীল 'সিগনেচার ব্লু' */
     --accent: #0071e3;
     --accent-hover: #0077ed;
-
-    /* Status Colors: অত্যন্ত ক্লিন প্যাস্টেল ব্যাকগ্রাউন্ড এবং রিচ টেক্সট */
     --success: #15803d;
     --success-bg: #f0fdf4;
     --success-border: #bbf7d0;
-
     --warning: #b45309;
     --warning-bg: #fffbeb;
     --warning-border: #fef08a;
-
     --danger: #dc2626;
     --danger-bg: #fef2f2;
     --danger-border: #fecaca;
 }
-
 
 body {
     font-family: 'Segoe UI', Arial, sans-serif;
@@ -164,7 +124,6 @@ body {
     min-height: 100vh;
     transition: background-color 0.3s ease, color 0.3s ease;
 }
-
 /* Theme Toggle Button */
 .theme-btn {
     background: var(--bg-card);
@@ -180,12 +139,10 @@ body {
     justify-content: center;
     margin: 0 4px;
 }
-
 .theme-btn:hover {
     background: var(--border);
     transform: scale(1.05);
 }
-
 /* Navbar */
 .navbar {
     background: var(--bg-secondary);
@@ -199,7 +156,6 @@ body {
     z-index: 100;
     transition: background-color 0.3s ease, border-color 0.3s ease;
 }
-
 .nav-brand {
     color: var(--text-primary);
     font-size: 15px;
@@ -209,7 +165,6 @@ body {
     gap: 8px;
     letter-spacing: 0.3px;
 }
-
 .nav-brand::before {
     content: '';
     width: 8px;
@@ -218,13 +173,11 @@ body {
     background: var(--accent);
     display: inline-block;
 }
-
 .nav-links {
     display: flex;
     align-items: center;
     gap: 4px;
 }
-
 .nav-links a {
     color: var(--text-secondary);
     text-decoration: none;
@@ -233,18 +186,15 @@ body {
     border-radius: 8px;
     transition: all 0.2s;
 }
-
 .nav-links a.nav-active {
     color: #fff;
     background: var(--accent);
     border-radius: 8px;
 }
-
 .nav-links a:hover {
     color: var(--text-primary);
     background: var(--bg-card);
 }
-
 .logout-btn {
     color: var(--danger) !important;
     background: var(--danger-bg) !important;
@@ -254,54 +204,34 @@ body {
     font-size: 13px;
     transition: all 0.2s !important;
 }
-
 .logout-btn:hover {
     opacity: 0.85;
 }
-
-/* =========================================================
-   Navbar Links Hover Animation
-========================================================= */
-/* নেভবারের সব লিংকের ট্রানজিশন স্মুথ করা */
+/* নেভবারের সব লিংকের ট্রানজিশন স্মুথ করেছি*/
 .nav-links a {
     text-decoration: none !important;
     transition: all 0.3s ease !important;
-    /* অ্যানিমেশনটি স্মুথ করার জন্য */
+    /* অ্যানিমেশনটি স্মুথ করেছি */
     display: inline-block !important;
-    /* স্কেল (scale) অ্যানিমেশনটি কার্যকর করার জন্য */
 }
-
-/* মাউস নিলে (Hover) প্রতিটি অপশন হালকা পপ-আপ হবে এবং অ্যাকসেন্ট কালার পাবে */
+/* মাউস নিলে প্রতিটি অপশন হালকা পপ-আপ হবে এবং অ্যাকসেন্ট কালার পাবে */
 .nav-links a:hover {
     color: var(--accent) !important;
     /* হোভার করলে থিমের মেইন কালার হবে */
     transform: scale(1.05) !important;
-    /* লেখাটি ৫% বড় হয়ে ভেসে উঠবে */
 }
-
-/* =========================================================
-   Navbar Brand (Logo/Text) Link Fix & Animation
-========================================================= */
+/*Navbar Brand (Logo/Text) Link Fix & Animation*/
 .navbar-brand {
     text-decoration: none !important;
-    /* লিংকের নিচের আন্ডারলাইন মুছে ফেলবে */
     color: var(--text-primary) !important;
-    /* আগের মতো স্বাভাবিক টেক্সট কালার দেবে */
     transition: all 0.3s ease;
-    /* হোভার অ্যানিমেশনটি স্মুথ করার জন্য */
     display: inline-block;
-    /* ট্রান্সফর্ম ঠিকমতো কাজ করার জন্য */
     font-weight: bold;
 }
-
-/* মাউস নিলে (Hover) যা হবে */
 .navbar-brand:hover {
     color: var(--accent) !important;
-    /* মাউস নিলে আপনার থিমের অ্যাকসেন্ট কালার হবে */
     transform: scale(1.05);
-    /* লেখাটা হালকা একটু পপ-আপ বা বড় হবে */
 }
-
 /* Container */
 .container {
     max-width: 1200px;
@@ -309,19 +239,16 @@ body {
     padding: 0 24px;
     animation: fadeIn 0.3s ease;
 }
-
 @keyframes fadeIn {
     from {
         opacity: 0;
         transform: translateY(8px);
     }
-
     to {
         opacity: 1;
         transform: translateY(0);
     }
 }
-
 /* Page title */
 h2 {
     font-size: 20px;
@@ -329,20 +256,17 @@ h2 {
     color: var(--text-primary);
     margin-bottom: 4px;
 }
-
 h3 {
     font-size: 15px;
     font-weight: 500;
     color: var(--text-primary);
     margin: 24px 0 12px;
 }
-
 .page-sub {
     color: var(--text-muted);
     font-size: 13px;
     margin-bottom: 24px;
 }
-
 /* Stats grid */
 .stats-grid {
     display: grid;
@@ -350,7 +274,6 @@ h3 {
     gap: 14px;
     margin-bottom: 28px;
 }
-
 .stat-card {
     background: var(--bg-secondary);
     border: 1px solid var(--border);
@@ -361,12 +284,10 @@ h3 {
     transition: border-color 0.2s, transform 0.2s, background-color 0.3s ease;
     cursor: default;
 }
-
 .stat-card:hover {
     border-color: var(--accent);
     transform: translateY(-2px);
 }
-
 .stat-card::before {
     content: '';
     position: absolute;
@@ -376,15 +297,12 @@ h3 {
     height: 2px;
     background: var(--accent);
 }
-
 .stat-card.present::before {
     background: var(--success);
 }
-
 .stat-card.absent::before {
     background: var(--danger);
 }
-
 .stat-number {
     font-size: 32px;
     font-weight: 600;
@@ -392,14 +310,12 @@ h3 {
     line-height: 1;
     margin-bottom: 8px;
 }
-
 .stat-label {
     font-size: 12px;
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
-
 /* Table */
 .attendance-table {
     width: 100%;
@@ -411,7 +327,6 @@ h3 {
     overflow: hidden;
     transition: background-color 0.3s ease;
 }
-
 .attendance-table th {
     background: var(--bg-card);
     color: var(--text-primary);
@@ -423,7 +338,6 @@ h3 {
     letter-spacing: 0.5px;
     border-bottom: 1px solid var(--border);
 }
-
 .attendance-table td {
     padding: 14px 1px;
     border-bottom: 1px solid var(--border);
@@ -432,11 +346,9 @@ h3 {
     transition: background 0.15s;
     text-align: center;
 }
-
 .attendance-table tr:last-child td {
     border-bottom: none;
 }
-
 .attendance-table tbody tr:hover td {
     background: var(--bg-card);
 }
@@ -444,7 +356,6 @@ h3 {
     text-align: left !important;
     padding-left: 110px !important;
 }
-
 /* Badges */
 .badge {
     padding: 3px 10px;
@@ -453,31 +364,26 @@ h3 {
     font-weight: 500;
     display: inline-block;
 }
-
 .badge-on-time {
     background: var(--success-bg);
     color: var(--success);
     border: 1px solid var(--success-border);
 }
-
 .badge-late {
     background: var(--warning-bg);
     color: var(--warning);
     border: 1px solid var(--warning-border);
 }
-
 .badge-present {
     background: var(--bg-card);
     color: var(--accent);
     border: 1px solid var(--border);
 }
-
 .badge-already-marked {
     background: var(--bg-card);
     color: var(--text-muted);
     border: 1px solid var(--border);
 }
-
 /* Filter form */
 .filter-form {
     display: flex;
@@ -486,7 +392,6 @@ h3 {
     flex-wrap: wrap;
     align-items: center;
 }
-
 .filter-form input,
 .filter-form select {
     background: var(--bg-secondary);
@@ -497,17 +402,14 @@ h3 {
     color: var(--text-primary);
     transition: border-color 0.2s, background-color 0.3s ease;
 }
-
 .filter-form input:focus,
 .filter-form select:focus {
     outline: none;
     border-color: var(--accent);
 }
-
 .filter-form select option {
     background: var(--bg-secondary);
 }
-
 /* Buttons */
 .btn-primary {
     background: var(--accent);
@@ -522,12 +424,10 @@ h3 {
     display: inline-block;
     transition: all 0.2s;
 }
-
 .btn-primary:hover {
     background: var(--accent-hover);
     transform: translateY(-1px);
 }
-
 .btn-success {
     background: var(--success-bg);
     color: var(--success);
@@ -540,12 +440,10 @@ h3 {
     display: inline-block;
     transition: all 0.2s;
 }
-
 .btn-success:hover {
     opacity: 0.8;
     transform: translateY(-1px);
 }
-
 .btn-danger {
     background: var(--danger-bg);
     color: var(--danger);
@@ -557,12 +455,10 @@ h3 {
     font-weight: 500;
     transition: all 0.2s;
 }
-
 .btn-danger:hover {
     opacity: 0.8;
     transform: translateY(-1px);
 }
-
 /* Notification box */
 .notification-box {
     background: var(--bg-secondary);
@@ -576,18 +472,15 @@ h3 {
     gap: 16px;
     transition: background-color 0.3s ease;
 }
-
 .notification-box h3 {
     margin: 0 0 4px;
     font-size: 14px;
 }
-
 .notification-box p {
     color: var(--text-muted);
     font-size: 12px;
     margin: 0;
 }
-
 /* Login page */
 .login-container {
     display: flex;
@@ -596,7 +489,6 @@ h3 {
     min-height: 100vh;
     background: var(--bg-primary);
 }
-
 .login-box {
     background: var(--bg-secondary);
     border: 1px solid var(--border);
@@ -606,31 +498,26 @@ h3 {
     max-width: 400px;
     animation: fadeIn 0.4s ease;
 }
-
 .login-box h2 {
     font-size: 18px;
     text-align: center;
     margin-bottom: 6px;
 }
-
 .login-subtitle {
     color: var(--text-muted);
     font-size: 13px;
     text-align: center;
     margin-bottom: 28px;
 }
-
 .form-group {
     margin-bottom: 16px;
 }
-
 .form-group label {
     display: block;
     font-size: 12px;
     color: var(--text-secondary);
     margin-bottom: 6px;
 }
-
 .form-group input {
     width: 100%;
     background: var(--bg-primary);
@@ -641,12 +528,10 @@ h3 {
     color: var(--text-primary);
     transition: border-color 0.2s, background-color 0.3s ease;
 }
-
 .form-group input:focus {
     outline: none;
     border-color: var(--accent);
 }
-
 .login-box .btn-primary {
     width: 100%;
     padding: 11px;
@@ -654,14 +539,12 @@ h3 {
     margin-top: 4px;
     text-align: center;
 }
-
 .login-hint {
     color: var(--text-muted);
     font-size: 11px;
     text-align: center;
     margin-top: 16px;
 }
-
 /* Alert */
 .alert {
     padding: 10px 16px;
@@ -670,19 +553,16 @@ h3 {
     font-size: 13px;
     animation: fadeIn 0.3s ease;
 }
-
 .alert-error {
     background: var(--danger-bg);
     color: var(--danger);
     border: 1px solid var(--danger-border);
 }
-
 .alert-success {
     background: var(--success-bg);
     color: var(--success);
     border: 1px solid var(--success-border);
 }
-
 /* Upload box */
 .upload-box {
     background: var(--bg-secondary);
@@ -692,14 +572,12 @@ h3 {
     max-width: 500px;
     transition: background-color 0.3s ease;
 }
-
 .upload-box p {
     color: var(--text-secondary);
     font-size: 13px;
     margin-bottom: 20px;
     line-height: 1.6;
 }
-
 .upload-box code {
     background: var(--bg-card);
     padding: 2px 6px;
@@ -707,7 +585,6 @@ h3 {
     font-size: 12px;
     color: var(--accent);
 }
-
 .upload-box input[type="file"] {
     background: var(--bg-primary);
     border: 1px solid var(--border);
@@ -719,25 +596,20 @@ h3 {
     margin-bottom: 16px;
     cursor: pointer;
 }
-
 /* Scrollbar */
 ::-webkit-scrollbar {
     width: 6px;
 }
-
 ::-webkit-scrollbar-track {
     background: var(--bg-primary);
 }
-
 ::-webkit-scrollbar-thumb {
     background: var(--border);
     border-radius: 3px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
     background: var(--text-muted);
 }
-
 /* Chart */
 .chart-box {
     background: var(--bg-secondary);
@@ -747,11 +619,9 @@ h3 {
     margin-bottom: 20px;
     transition: background-color 0.3s ease;
 }
-
 .chart-box h3 {
     margin-bottom: 16px;
 }
-
 /* Low attendance alert */
 .alert-box {
     background: var(--bg-secondary);
@@ -762,12 +632,10 @@ h3 {
     border-left: 4px solid var(--warning);
     transition: background-color 0.3s ease;
 }
-
 .alert-box h3 {
     color: var(--warning);
     margin-bottom: 0;
 }
-
 /* Absent list */
 .absent-box {
     background: var(--bg-secondary);
@@ -778,17 +646,14 @@ h3 {
     border-left: 4px solid var(--danger);
     transition: background-color 0.3s ease;
 }
-
 .absent-box h3 {
     margin-bottom: 16px;
 }
-
 .absent-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     gap: 10px;
 }
-
 .absent-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
@@ -796,36 +661,30 @@ h3 {
     padding: 12px;
     transition: border-color 0.2s, background-color 0.3s ease;
 }
-
 .absent-card:hover {
     border-color: var(--danger);
 }
-
 .absent-name {
     color: var(--text-primary);
     font-size: 13px;
     font-weight: 500;
     margin-bottom: 4px;
 }
-
 .absent-roll {
     color: var(--text-muted);
     font-size: 11px;
 }
-
 .absent-section {
     color: var(--accent);
     font-size: 11px;
     margin-top: 2px;
 }
-
 .date-separator td {
     background: transparent !important;
     padding: 12px 16px 4px !important;
     border: none !important;
     border-top: 2px solid var(--border) !important;
 }
-
 .date-label {
     color: var(--text-primary);
     font-size: 16px;
@@ -835,10 +694,7 @@ h3 {
     padding-left: 0;
 }
 
-/* =========================================================
-   Responsive Design (Media Queries)
-========================================================= */
-
+/*Responsive Design (Media Queries)*/
 .hamburger {
     display: none;
     background: none;
@@ -850,22 +706,18 @@ h3 {
     cursor: pointer;
     transition: all 0.2s;
 }
-
 .hamburger:hover {
     background: var(--bg-card);
 }
-
 @media (max-width: 768px) {
     .navbar {
         flex-wrap: wrap;
         padding: 12px 16px;
         gap: 8px;
     }
-
     .hamburger {
         display: block;
     }
-
     .nav-links {
         display: none;
         flex-direction: column;
@@ -874,11 +726,9 @@ h3 {
         padding-top: 8px;
         border-top: 1px solid var(--border);
     }
-
     .nav-links.open {
         display: flex;
     }
-
     .nav-links a,
     .theme-btn {
         width: 100%;
@@ -887,22 +737,18 @@ h3 {
         text-align: center;
         margin: 4px 0;
     }
-
     .logout-btn {
         width: 100%;
         text-align: center;
     }
-
     .container {
         padding: 0 12px;
         margin: 16px auto;
     }
-
     .filter-form {
         flex-direction: column;
         align-items: stretch;
     }
-
     .filter-form input,
     .filter-form select,
     .filter-form button,
@@ -910,72 +756,57 @@ h3 {
         width: 100%;
         text-align: center;
     }
-
     .notification-box {
         flex-direction: column;
         align-items: flex-start;
     }
-
     .notification-box form {
         width: 100%;
         flex-direction: column;
         align-items: stretch !important;
     }
-
     .notification-box button {
         width: 100%;
     }
-
     .stats-grid {
         grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     }
-
     .attendance-table {
         display: block;
         overflow-x: auto;
         white-space: nowrap;
     }
-
     .login-box {
         padding: 24px 16px;
         margin: 0 12px;
     }
-
     .absent-grid {
         grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     }
-
     h2 {
         font-size: 18px;
     }
-
     h3 {
         font-size: 14px;
     }
-
     .stat-number {
         font-size: 26px;
     }
 }
-
 @media (max-width: 480px) {
     .stats-grid {
         grid-template-columns: 1fr 1fr;
     }
-
     .nav-links a {
         font-size: 13px;
         padding: 8px 12px;
     }
-
     .nav-brand {
         font-size: 13px;
     }
 }
 
-/* =========================================================
-   Modern Tabs Layout
-========================================================= */
+/*Modern Tabs Layout*/
 .tabs-container {
     display: flex;
     gap: 8px;
@@ -983,7 +814,6 @@ h3 {
     border-bottom: 1px solid var(--border);
     padding-bottom: 8px;
 }
-
 .tab-btn {
     background: transparent;
     color: var(--text-secondary);
@@ -998,36 +828,25 @@ h3 {
     align-items: center;
     gap: 6px;
 }
-
 .tab-btn:hover {
     color: var(--text-primary);
     background: var(--bg-card);
 }
-
 .tab-btn.active {
     background: var(--accent);
     color: #fff;
 }
-
 .tab-content {
     display: none;
     animation: fadeIn 0.3s ease;
 }
-
 .tab-content.active {
     display: block;
 }
 
-/* =========================================================
-   ULTIMATE NATIVE DATE PICKER FIX (NO HACKS)
-========================================================= */
-
-/* ডার্ক থিমের জন্য ব্রাউজারকে নির্দেশ দেওয়া */
-
-
+/*ULTIMATE NATIVE DATE PICKER FIX*/
 /* ছোট স্ক্রিনের জন্য বক্সের সাইজ ঠিক রাখা */
 @media (max-width: 768px) {
-
     .filter-form input[type="date"],
     .notification-box input[type="date"],
     input[type="date"] {
@@ -1035,7 +854,6 @@ h3 {
         width: 100% !important;
     }
 }
-
 .date-input {
     width: 100%;
     height: 44px;
@@ -1046,7 +864,6 @@ h3 {
     color: var(--text-primary);
     font-size: 16px;
 }
-
 input[type="date"] {
     all: revert;
 }

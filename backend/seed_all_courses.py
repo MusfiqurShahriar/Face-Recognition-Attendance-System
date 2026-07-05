@@ -32,7 +32,7 @@ def seed():
             if not sid:
                 print(f"⚠️ Session পাওয়া যায়নি: {name}, স্কিপ করা হলো")
 
-        # ================= 2020-21 (4th Year 2nd Sem) =================
+        #2020-21 (4th Year 2nd Sem)
         sid = sessions["2020-21"]
         if sid:
             add_course(db, sid, "EECE4211", "Computer Networks and Data Communication")
@@ -44,7 +44,7 @@ def seed():
             add_course(db, sid, "EECE42XX", "Elective IV", section="IV")
             add_course(db, sid, "EECE42XX", "Elective V", section="V")
 
-        # ================= 2021-22 (4th Year 1st Sem) =================
+        #2021-22 (4th Year 1st Sem)
         sid = sessions["2021-22"]
         if sid:
             add_course(db, sid, "EECE4111", "Digital Signal Processing")
@@ -59,7 +59,7 @@ def seed():
             add_course(db, sid, "EECE41XX", "Sessional Based on Elective III", section="III-S")
             add_course(db, sid, "EECE4181", "Industrial Training")
 
-        # ================= 2022-23 (3rd Year 1st Sem) =================
+        #2022-23 (3rd Year 1st Sem)
         sid = sessions["2022-23"]
         if sid:
             add_course(db, sid, "EECE3111", "Electromagnetic Fields and Waves")
@@ -71,7 +71,7 @@ def seed():
             add_course(db, sid, "EECE3142", "Sessional Based on Power System I")
             add_course(db, sid, "EECE3151", "Control System")
 
-        # ================= 2023-24 (2nd Year 2nd Sem) =================
+        #2023-24 (2nd Year 2nd Sem)
         sid = sessions["2023-24"]
         if sid:
             add_course(db, sid, "EECE2211", "Digital Electronics")
@@ -84,7 +84,7 @@ def seed():
             add_course(db, sid, "HUM2201", "Economics")
             add_course(db, sid, "EECE2242", "Electrical and Electronic Workshop")
 
-        # ================= 2024-25 (1st Year 2nd Sem) =================
+        #2024-25 (1st Year 2nd Sem)
         sid = sessions["2024-25"]
         if sid:
             add_course(db, sid, "EECE1211", "Electrical Circuits II")

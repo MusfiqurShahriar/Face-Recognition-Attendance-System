@@ -14,19 +14,15 @@ def is_duplicate(roll_number, date, course_id=None):
         query = query.filter(Attendance.course_id == course_id)
     else:
         query = query.filter(Attendance.course_id.is_(None))
-
     existing = query.first()
     db.close()
     return existing is not None
-
-
 def get_or_create_session(date, section):
     db = SessionLocal()
     session = db.query(ClassSession).filter(
         ClassSession.date == date,
         ClassSession.section == section
     ).first()
-
     if not session:
         session = ClassSession(
             date=date,
@@ -39,8 +35,6 @@ def get_or_create_session(date, section):
 
     db.close()
     return session
-
-
 def update_first_entry(date, section, time_str):
     db = SessionLocal()
     session = db.query(ClassSession).filter(
@@ -53,7 +47,6 @@ def update_first_entry(date, section, time_str):
         db.commit()
 
     db.close()
-
 
 def calculate_status(role, section, date, current_time_str):
     if role == "teacher":
@@ -72,7 +65,6 @@ def calculate_status(role, section, date, current_time_str):
 
     return "On Time" if diff_minutes <= LATE_THRESHOLD_MINUTES else "Late"
 
-
 def mark_attendance(name, role, section=None, semester=None, course_id=None, session_id=None):
     # --- ম্যাজিক কোড শুরু ---
     tz_dhaka = pytz.timezone('Asia/Dhaka')
@@ -81,11 +73,9 @@ def mark_attendance(name, role, section=None, semester=None, course_id=None, ses
     
     date_str = now.strftime("%Y-%m-%d")
     time_str = now.strftime("%H:%M:%S")
-
     student = get_student_by_name(name)
 
     from database import get_teacher_by_name
-
     student = get_student_by_name(name)
     teacher = get_teacher_by_name(name) if student is None else None
 
@@ -106,7 +96,6 @@ def mark_attendance(name, role, section=None, semester=None, course_id=None, ses
         return "duplicate"
 
     status = calculate_status(role, sec, date_str, time_str)
-
     db = SessionLocal()
     record = Attendance(
         user_id=roll,

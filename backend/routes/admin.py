@@ -72,7 +72,6 @@ def add_course(session_id):
                 flash(f"Course '{course_code}' যোগ হয়েছে!", "success")
     finally:
         db.close()
-
     return redirect(url_for("admin.session_courses", session_id=session_id))
 
 @admin_bp.route("/course/<int:course_id>/edit", methods=["POST"])
@@ -85,9 +84,7 @@ def edit_course(course_id):
         if not course:
             flash("Course পাওয়া যায়নি!", "error")
             return redirect(url_for("admin.dashboard"))
-
         session_id = course.session_id
-
         course.course_code = request.form.get("course_code", "").strip()
         course.course_name = request.form.get("course_name", "").strip()
         course.section = request.form.get("section", "").strip()
@@ -96,9 +93,7 @@ def edit_course(course_id):
         flash("Course আপডেট হয়েছে!", "success")
     finally:
         db.close()
-
     return redirect(url_for("admin.session_courses", session_id=session_id))
-
 
 @admin_bp.route("/course/<int:course_id>/delete", methods=["POST"])
 @login_required
@@ -112,11 +107,9 @@ def delete_course(course_id):
             return redirect(url_for("admin.dashboard"))
 
         session_id = course.session_id
-
         # সংশ্লিষ্ট enrollment মুছে ফেলা হচ্ছে
         db.query(Enrollment).filter(Enrollment.course_id == course_id).delete()
-
-        # সংশ্লিষ্ট camera command মুছে ফেলা হচ্ছে (নতুন যোগ করা লাইন)
+        # সংশ্লিষ্ট camera command মুছে ফেলা হচ্ছে
         db.query(CameraCommand).filter(CameraCommand.course_id == course_id).delete()
 
         db.delete(course)
@@ -124,7 +117,6 @@ def delete_course(course_id):
         flash("Course এবং সংশ্লিষ্ট enrollment মুছে ফেলা হয়েছে!", "success")
     finally:
         db.close()
-
     return redirect(url_for("admin.session_courses", session_id=session_id))
 
 @admin_bp.route("/unassigned-attendance", methods=["GET", "POST"])
@@ -155,7 +147,6 @@ def unassigned_attendance():
         all_courses = db.query(Course).order_by(Course.session_id, Course.course_code).all()
     finally:
         db.close()
-
     return render_template("admin/unassigned_attendance.html", orphan_dates=orphan_dates, courses=all_courses)
 
 @admin_bp.route("/session/<int:session_id>/course/<int:course_id>/dashboard")
@@ -174,7 +165,6 @@ def course_dashboard(session_id, course_id):
     db = SessionLocal()
     try:
         course_obj = db.query(Course).get(course_id)
-
         all_today_records = db.query(Attendance).filter(
             Attendance.date == today,
             Attendance.course_id == course_id
@@ -301,7 +291,6 @@ def course_dashboard(session_id, course_id):
 
     finally:
         db.close()
-
     return render_template("admin/dashboard.html", **_DASHBOARD_CACHE)
 
 @admin_bp.route("/dashboard")
@@ -314,7 +303,6 @@ def dashboard():
     finally:
         db.close()
     return render_template("admin/sessions.html", sessions=sessions)
-
 
 @admin_bp.route("/session/<int:session_id>/courses")
 @login_required
@@ -369,7 +357,6 @@ def attendance():
         all_teacher_records,
         key=lambda x: (x.date, get_teacher_rank(x.section))
     )
-
     students_list = load_students_from_excel()
     sections = sorted(list(set([s["section"] for s in students_list if s.get("section")])))
     semesters = db.query(Attendance.semester).distinct().all()
@@ -386,7 +373,6 @@ def attendance():
         selected_section=section,
         selected_semester=semester
     )
-
 
 @admin_bp.route("/percentage")
 @login_required
@@ -606,7 +592,6 @@ def course_history(session_id, course_id):
         teacher_records=teacher_records
     )
 
-
 @admin_bp.route("/session/<int:session_id>/course/<int:course_id>/percentage")
 @login_required
 @admin_required
@@ -723,7 +708,6 @@ def course_export_percentage(session_id, course_id):
         as_attachment=True,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-
 
 @admin_bp.route("/session/<int:session_id>/course/<int:course_id>/export/history")
 @login_required
@@ -883,7 +867,6 @@ def upload_students():
 
     finally:
         db.close()
-
     return render_template("admin/upload_students.html", sessions=sessions)
 
 @admin_bp.route("/change-password", methods=["GET", "POST"])
@@ -929,9 +912,7 @@ def change_password():
 
         flash("Password সফলভাবে পরিবর্তন হয়েছে!", "success")
         return redirect(url_for("admin.dashboard"))
-
     return render_template("admin/change_password.html")
-
 
 @admin_bp.route("/export/percentage")
 @login_required
@@ -1017,7 +998,6 @@ def export_percentage():
         as_attachment=True,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-
 
 @admin_bp.route("/manual-attendance", methods=["POST"])
 @login_required
@@ -1116,9 +1096,7 @@ def manual_attendance():
         print(f"Error: {e}")
     finally:
         db.close()
-
     return redirect(url_for('admin.dashboard'))
-
 
 @admin_bp.route('/update_attendance', methods=['POST'])
 def update_attendance():
@@ -1160,7 +1138,6 @@ def update_attendance():
 
     return redirect(url_for('admin.dashboard'))
 
-
 @admin_bp.route('/delete_attendance', methods=['POST'])
 def delete_attendance():
     date_to_delete = request.form.get('delete_date')
@@ -1195,5 +1172,4 @@ def delete_attendance():
             session.close()
     else:
         flash("অনুগ্রহ করে একটি তারিখ নির্বাচন করুন।", "danger")
-
     return redirect(url_for('admin.dashboard'))

@@ -1,25 +1,20 @@
 {% extends "base.html" %}
 {% block content %}
-
 <div class="tabs-container" style="margin-bottom: 15px;">
     <a href="{{ url_for('admin.course_dashboard', session_id=session_id, course_id=course.id) }}" class="tab-btn">←
         Course Dashboard এ ফিরুন</a>
 </div>
-
 <h2>{{ course.course_name }} ({{ course.course_code }}) — Attendance History</h2>
-
 <div style="margin: 15px 0;">
     <a href="{{ url_for('admin.course_export_history', session_id=session_id, course_id=course.id) }}"
         class="btn-success">📥 Download History</a>
 </div>
-
 <div class="tabs-container" style="margin-top: 20px;">
     <button class="tab-btn active" onclick="switchRecordTab(event, 'student-records', 'student')">👨‍🎓 Students ({{
         student_records|length }})</button>
     <button class="tab-btn" onclick="switchRecordTab(event, 'teacher-records', 'teacher')">🧑‍🏫 Teachers ({{
         teacher_records|length }})</button>
 </div>
-
 <div id="student-records" class="record-tab-content active" style="display: block;">
     <div class="table-wrap">
         <table class="attendance-table" style="border-left: 4px solid var(--success);">

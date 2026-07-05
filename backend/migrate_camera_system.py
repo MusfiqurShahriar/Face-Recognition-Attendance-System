@@ -4,7 +4,6 @@ def migrate():
     # ধাপ ১: নতুন টেবিল (camera, camera_command) তৈরি
     Base.metadata.create_all(engine)
     print("নতুন টেবিল (camera, camera_command) তৈরি হয়েছে।")
-
     # ধাপ ২: ৪টা camera seed করা
     db = SessionLocal()
     try:
@@ -25,6 +24,5 @@ def migrate():
         db.close()
 
     print("Migration সম্পন্ন হয়েছে।")
-
 if __name__ == "__main__":
     migrate()

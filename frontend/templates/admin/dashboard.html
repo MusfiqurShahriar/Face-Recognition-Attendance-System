@@ -1,8 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-
 <h2>আজকের উপস্থিতি ({{ today }})</h2>
-
 <div class="stats-grid">
     <div class="stat-card">
         <div class="stat-number">{{ total_students }}</div>
@@ -26,7 +24,7 @@
     <form method="POST" action="{{ url_for('admin.send_notifications') }}"
         style="display:flex; gap:10px; align-items:center">
         <input type="date" name="date" value="{{ today }}" style="background:var(--bg-primary); border:1px solid var(--border);
-                      border-radius:8px; padding:7px 12px; color:var(--text-primary)">
+                    border-radius:8px; padding:7px 12px; color:var(--text-primary)">
         <button type="submit" class="btn-danger" onclick="return confirm('অনুপস্থিত সবাইকে email পাঠাবো?')">
             Email পাঠান
         </button>
@@ -84,129 +82,68 @@
     style="margin-top: 20px; border-left: 4px solid var(--accent); background-color: var(--bg-card); padding: 20px; border-radius: 8px;">
 
     <div>
-
         <h3>✏️ ভুল হাজিরা সংশোধন করুন</h3>
-
         <p>সিস্টেম বা ম্যানুয়াল ভুলে এন্ট্রি হওয়া হাজিরা আপডেট করুন</p>
-
     </div>
-
-
 
     <form action="{{ url_for('admin.update_attendance') }}" method="POST"
         style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top: 10px;">
 
-
-
         <input type="date" name="update_date" value="{{ today }}" required
             style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 280px; outline: none;">
 
-
-
         <select name="role" id="edit_role_selector" required onchange="toggleEditDatalist()"
             style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 280px; outline: none;">
-
             <option value="student">👨‍🎓 Student</option>
-
             <option value="teacher">🧑‍🏫 Teacher</option>
-
         </select>
-
-
 
         <input type="text" name="student_roll" id="edit_target_input" list="edit_student_list"
             placeholder="স্টুডেন্টের রোল খুঁজুন" required
             style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 280px; outline: none;">
 
-
-
         <datalist id="edit_student_list">
-
             {% for student in all_registered_students %}
-
             <option value="{{ student.roll }}">[{{ student.name }}]</option>
-
             {% endfor %}
-
         </datalist>
-
-
 
         <datalist id="edit_teacher_list">
-
             {% for teacher in all_registered_teachers %}
-
             <option value="{{ teacher.name }}">({{ teacher.designation }})</option>
-
             {% endfor %}
-
         </datalist>
-
-
 
         <select name="new_status" required
             style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 280px; outline: none;">
-
             <option value="">নতুন স্ট্যাটাস বাছুন</option>
-
             <option value="On Time">Present (On Time)</option>
-
             <option value="Late">Present (Late)</option>
-
             <option value="Absent">Absent</option>
-
         </select>
-
-
 
         <button type="submit" class="btn-primary"
             style="background-color: var(--accent); border: 1px solid var(--accent); padding: 7px 15px; border-radius: 8px; color: white; cursor: pointer; width: 280px; transition: all 0.2s;">
-
             Update Record
-
         </button>
-
     </form>
-
 </div>
 
-
-
 <script>
-
     function toggleEditDatalist() {
-
         var role = document.getElementById('edit_role_selector').value;
-
         var input = document.getElementById('edit_target_input');
-
-
-
-        // আগে থেকে লেখা কিছু থাকলে তা মুছে ফেলবে
-
         input.value = '';
-
-
-
         if (role === 'student') {
-
             input.setAttribute('list', 'edit_student_list');
-
             input.placeholder = "স্টুডেন্টের রোল খুঁজুন";
-
         } else {
-
             input.setAttribute('list', 'edit_teacher_list');
-
             input.placeholder = "টিচারের নাম খুঁজুন";
-
         }
-
     }
 
 </script>
-
-
 <!-- Delete Attendance Section -->
 <div class="notification-box"
     style="margin-top: 20px; border-left: 4px solid #dc3545; background-color: var(--bg-card); padding: 20px; border-radius: 8px;">
@@ -217,12 +154,9 @@
     <form method="POST" action="{{ url_for('admin.delete_attendance') }}"
         onsubmit="return confirm('আপনি কি নিশ্চিত যে এই রেকর্ডগুলো চিরতরে মুছে ফেলতে চান? এটি আর ফেরত আনা যাবে না!');"
         style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top: 10px;">
-
-        <!-- তারিখ ইনপুট (নাম ঠিক রাখা হয়েছে) -->
         <input type="date" name="delete_date" value="{{ today }}" required
             style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 280px; outline: none;">
-
-        <!-- ড্রপডাউন (All অপশন সহ) -->
+        
         <select name="delete_scope" required
             style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 280px; outline: none; cursor: pointer;">
             <option value="all">💥 All Records</option>
@@ -230,7 +164,6 @@
             <option value="teacher">🧑‍🏫 Teachers Only</option>
         </select>
 
-        <!-- ডিলিট বাটন (লাল রঙে) -->
         <button type="submit" class="btn-danger"
             style="background-color: #dc3545; border: 1px solid #dc3545; padding: 7px 15px; border-radius: 8px; color: white; cursor: pointer; width: 280px; transition: background 0.2s;">
             Delete Records
@@ -238,14 +171,12 @@
     </form>
 </div>
 
-
 <div class="chart-box">
     <h3>একনজরে শেষ ৭ দিনের Attendance Trend</h3>
     <div style="position:relative; height:230px; width:100%">
         <canvas id="attendanceChart"></canvas>
     </div>
 </div>
-
 <h3>আজকের Attendance List</h3>
 
 <div class="tabs-container">
@@ -415,7 +346,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // রোল ও রোল টাইপ পরিবর্তনকারী জাভাস্ক্রিপ্ট লজিক
     function toggleDatalist() {
         const role = document.getElementById('role_selector').value;
         const inputField = document.getElementById('target_input');
@@ -427,14 +357,12 @@
             inputField.setAttribute('list', 'teacher_list');
             inputField.placeholder = "Teacher Name সিলেক্ট করুন";
         }
-        inputField.value = ""; // ফিল্ড রিসেট
+        inputField.value = "";
     }
 
-    // উইন্ডো লোড হওয়ার সাথে সাথে ইনিশিয়াল বাইন্ডিং
     window.onload = function () {
         toggleDatalist();
     };
-
     const ctx = document.getElementById('attendanceChart').getContext('2d');
     new Chart(ctx, {
         type: 'bar',

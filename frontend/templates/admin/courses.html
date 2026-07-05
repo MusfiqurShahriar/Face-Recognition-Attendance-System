@@ -1,13 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
-
 <h2>📖 {{ session.name }} —List of Courses</h2>
-
 <div class="tabs-container" style="margin-bottom: 15px;">
     <a href="{{ url_for('admin.dashboard') }}" class="tab-btn">← সব Session</a>
 </div>
 
-<!-- ফর্ম এখন উপরে -->
 <div
     style="background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:20px; max-width:500px; margin-bottom:24px;">
     <h3 style="margin-bottom:14px;">➕ Add New Courses</h3>
@@ -31,7 +28,6 @@
     </form>
 </div>
 
-<!-- টেবিল এখন নিচে -->
 <div style="border-left: 4px solid var(--accent); border-radius: 8px; overflow: hidden;">
     <table class="attendance-table" style="margin-top: 0;">
         <thead>
@@ -93,5 +89,4 @@
         </tbody>
     </table>
 </div>
-
 {% endblock %}

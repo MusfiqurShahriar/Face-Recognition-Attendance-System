@@ -4,7 +4,6 @@ from database import SessionLocal, Attendance
 
 teacher_bp = Blueprint("teacher", __name__, url_prefix="/teacher")
 
-
 @teacher_bp.route("/dashboard")
 @login_required
 def dashboard():

@@ -15,17 +15,13 @@ print("[INFO] Dataset থেকে face encoding তৈরি হচ্ছে...
 
 for role in ["students", "teachers"]:
     role_path = os.path.join(DATASET_PATH, role)
-
     if not os.path.isdir(role_path):
         print(f"[WARNING] {role} ফোল্ডার পাওয়া যায়নি, skip")
         continue
-
     for person_name in os.listdir(role_path):
         person_folder = os.path.join(role_path, person_name)
-
         if not os.path.isdir(person_folder):
             continue
-
         for image_file in os.listdir(person_folder):
             image_path = os.path.join(person_folder, image_file)
 
@@ -57,10 +53,8 @@ data = {
     "names": known_names,
     "roles": known_roles
 }
-
 with open(ENCODINGS_FILE, "wb") as f:
     pickle.dump(data, f)
-
 print(f"\n[DONE] মোট {len(known_names)} টি encoding সেভ হয়েছে → models/encodings.pkl")
 print(f"  Students: {known_roles.count('students')}")
 print(f"  Teachers: {known_roles.count('teachers')}")

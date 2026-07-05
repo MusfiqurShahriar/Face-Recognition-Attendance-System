@@ -6,19 +6,16 @@ import os
 import glob
 from dotenv import load_dotenv, find_dotenv
 
-# এটি প্রজেক্টের যেকোনো জায়গা থেকে .env ফাইল ঠিকই খুঁজে নেবে
+# এটি প্রজেক্টের যেকোনো জায়গা থেকে .env ফাইল খুঁজে নেবে
 load_dotenv(find_dotenv())
-
 # --- Cloud Database Magic Setup ---
 raw_db_url = os.getenv("DATABASE_URL", "sqlite:///../database/attendance.db")
-
 print(f"[DEBUG] Connected DB: {raw_db_url[:13]}...")
 
 if raw_db_url.startswith("postgres://"):
     DATABASE_URL = raw_db_url.replace("postgres://", "postgresql://", 1)
 else:
     DATABASE_URL = raw_db_url
-    
 # EXCEL_PATH = "../database/students.xlsx"
 # TEACHERS_EXCEL_PATH = "../database/teachers.xlsx"
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -41,15 +38,11 @@ else:
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 
-# ==========================================
 # Caching Variables
-# ==========================================
 _STUDENT_CACHE = None
 _STUDENT_CACHE_TIME = 0
-
 _TEACHER_CACHE = None
 _TEACHER_CACHE_TIME = 0
-
 
 class Attendance(Base):
     __tablename__ = "attendance"
@@ -67,7 +60,6 @@ class Attendance(Base):
     created_at = Column(DateTime, default=datetime.now)
     course_id = Column(Integer, ForeignKey('course.id'), nullable=True)
     session_id = Column(Integer, ForeignKey('session.id'), nullable=True)
-
 
 class ClassSession(Base):
     __tablename__ = "class_sessions"
@@ -88,7 +80,6 @@ class Session(Base):
     created_at = Column(DateTime, default=datetime.now)
     courses = relationship('Course', backref='session', lazy=True)
 
-
 class Course(Base):
     __tablename__ = 'course'
     id = Column(Integer, primary_key=True)
@@ -97,7 +88,6 @@ class Course(Base):
     course_name = Column(String(100), nullable=False)
     section = Column(String(20))
     created_at = Column(DateTime, default=datetime.now)
-
 
 class Enrollment(Base):
     __tablename__ = 'enrollment'
@@ -114,8 +104,6 @@ class Camera(Base):
     camera_code = Column(String(20), unique=True, nullable=False)  # "804", "805" ইত্যাদি
     room_name = Column(String(50))
     created_at = Column(DateTime, default=datetime.now)
-
-
 class CameraCommand(Base):
     __tablename__ = 'camera_command'
     id = Column(Integer, primary_key=True)
@@ -204,7 +192,6 @@ def load_students_from_excel():
                 "semester": str(row.get("semester", "")).strip()
             })
             seen_rolls.add(roll)
-
     _STUDENT_CACHE = students
     _STUDENT_CACHE_TIME = latest_mtime
     return students
@@ -238,14 +225,12 @@ def load_teachers_from_excel():
     _TEACHER_CACHE_TIME = current_mtime
     return teachers
 
-
 def get_student_by_email(email):
     students = load_students_from_excel()
     for s in students:
         if s["login_email"].lower() == email.lower():
             return s
     return None
-
 
 def get_student_by_name(name):
     students = load_students_from_excel()
@@ -254,7 +239,6 @@ def get_student_by_name(name):
             return s
     return None
 
-
 def get_teacher_by_email(email):
     teachers = load_teachers_from_excel()
     for t in teachers:
@@ -262,14 +246,12 @@ def get_teacher_by_email(email):
             return t
     return None
 
-
 def get_teacher_by_name(name):
     teachers = load_teachers_from_excel()
     for t in teachers:
         if t["name"].lower() == name.lower():
             return t
     return None
-
 
 def get_admin_from_env():
     return {
@@ -279,11 +261,9 @@ def get_admin_from_env():
         "role": "admin"
     }
 
-
 def init_db():
     Base.metadata.create_all(bind=engine)
     print("[OK] Database কানেকশন সফল!")
-
 
 if __name__ == "__main__":
     init_db()

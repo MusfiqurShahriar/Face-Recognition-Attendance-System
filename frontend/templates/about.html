@@ -1,24 +1,20 @@
 {% extends "base.html" %}
-
 {% block content %}
 <style>
     .page-header {
         margin-bottom: 28px;
     }
-
     .page-header h2 {
         font-size: 20px;
         font-weight: 600;
         color: var(--text-primary);
         margin-bottom: 4px;
     }
-
     .page-sub {
         color: var(--text-muted);
         font-size: 13px;
     }
-
-    /* HERO CARD */
+/* HERO CARD */
     .hero-card {
         background: var(--bg-secondary);
         border: 1px solid var(--border);
@@ -31,7 +27,6 @@
         position: relative;
         overflow: hidden;
     }
-
     .hero-card::before {
         content: '';
         position: absolute;
@@ -41,7 +36,6 @@
         height: 2px;
         background: var(--accent);
     }
-
     .hero-avatar {
         width: 72px;
         height: 72px;
@@ -54,14 +48,12 @@
         font-size: 30px;
         flex-shrink: 0;
     }
-
     .hero-info h1 {
         font-size: 18px;
         font-weight: 600;
         color: var(--text-primary);
         margin-bottom: 6px;
     }
-
     .hero-desc {
         font-size: 13px;
         color: var(--text-secondary);
@@ -69,59 +61,49 @@
         margin-bottom: 14px;
         max-width: 680px;
     }
-
     .badge-row {
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
     }
-
     .badge-accent {
         background: rgba(79, 70, 229, 0.15);
         color: #818cf8;
         border: 1px solid rgba(79, 70, 229, 0.3);
     }
-
     .badge-success {
         background: var(--success-bg);
         color: var(--success);
         border: 1px solid var(--success-border);
     }
-
     .badge-warning {
         background: var(--warning-bg);
         color: var(--warning);
         border: 1px solid var(--warning-border);
     }
-
     .badge-muted {
         background: var(--bg-card);
         color: var(--text-muted);
         border: 1px solid var(--border);
     }
-
-    /* STATS OVERRIDES */
+/* STATS OVERRIDES */
     .stat-icon {
         font-size: 22px;
         margin-bottom: 10px;
     }
-
     .stat-card.green::before {
         background: var(--success);
     }
-
     .stat-card.yellow::before {
         background: var(--warning);
     }
-
-    /* FEATURE GRID */
+/* FEATURE GRID */
     .feature-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
         gap: 12px;
         margin-bottom: 8px;
     }
-
     .feature-card {
         background: var(--bg-secondary);
         border: 1px solid var(--border);
@@ -129,19 +111,16 @@
         padding: 18px 20px;
         transition: border-color 0.2s, transform 0.2s;
     }
-
     .feature-card:hover {
         border-color: var(--accent);
         transform: translateY(-2px);
     }
-
     .feature-top {
         display: flex;
         align-items: center;
         gap: 10px;
         margin-bottom: 8px;
     }
-
     .feature-icon {
         width: 34px;
         height: 34px;
@@ -154,26 +133,22 @@
         font-size: 16px;
         flex-shrink: 0;
     }
-
     .feature-title {
         font-size: 14px;
         font-weight: 600;
         color: var(--text-primary);
     }
-
     .feature-desc {
         font-size: 12px;
         color: var(--text-secondary);
         line-height: 1.65;
     }
-
-    /* TECH STACK */
+/* TECH STACK */
     .tech-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
         gap: 10px;
     }
-
     .tech-item {
         background: var(--bg-secondary);
         border: 1px solid var(--border);
@@ -184,37 +159,31 @@
         gap: 10px;
         transition: border-color 0.2s;
     }
-
     .tech-item:hover {
         border-color: var(--accent);
     }
-
     .tech-dot {
         width: 8px;
         height: 8px;
         border-radius: 50%;
         flex-shrink: 0;
     }
-
     .tech-name {
         font-size: 13px;
         font-weight: 500;
         color: var(--text-primary);
     }
-
     .tech-role {
         font-size: 11px;
         color: var(--text-muted);
         margin-top: 1px;
     }
-
-    /* ROLES GRID */
+/* ROLES GRID */
     .roles-grid {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
         gap: 12px;
     }
-
     .role-card {
         background: var(--bg-secondary);
         border: 1px solid var(--border);
@@ -223,7 +192,6 @@
         position: relative;
         overflow: hidden;
     }
-
     .role-card::before {
         content: '';
         position: absolute;
@@ -232,38 +200,31 @@
         right: 0;
         height: 2px;
     }
-
     .role-card.admin::before {
         background: var(--accent);
     }
-
     .role-card.student::before {
         background: var(--success);
     }
-
     .role-card.teacher::before {
         background: var(--warning);
     }
-
     .role-icon {
         font-size: 22px;
         margin-bottom: 8px;
     }
-
     .role-title {
         font-size: 14px;
         font-weight: 600;
         color: var(--text-primary);
         margin-bottom: 10px;
     }
-
     .perm-list {
         list-style: none;
         display: flex;
         flex-direction: column;
         gap: 5px;
     }
-
     .perm-list li {
         font-size: 12px;
         color: var(--text-secondary);
@@ -271,7 +232,6 @@
         align-items: center;
         gap: 7px;
     }
-
     .perm-list li::before {
         content: '';
         width: 5px;
@@ -280,8 +240,7 @@
         background: var(--success);
         flex-shrink: 0;
     }
-
-    /* DEVELOPER CARD */
+/* DEVELOPER CARD */
     .dev-card {
         background: var(--bg-secondary);
         border: 1px solid var(--border);
@@ -291,7 +250,6 @@
         gap: 20px;
         align-items: flex-start;
     }
-
     .dev-avatar {
         width: 56px;
         height: 56px;
@@ -304,40 +262,34 @@
         font-size: 24px;
         flex-shrink: 0;
     }
-
     .dev-name {
         font-size: 16px;
         font-weight: 600;
         margin-bottom: 3px;
         color: var(--text-primary);
     }
-
     .dev-role {
         font-size: 12px;
         color: var(--text-secondary);
         margin-bottom: 2px;
     }
-
     .dev-uni {
         font-size: 12px;
         color: var(--text-muted);
         margin-bottom: 12px;
     }
-
     .dev-bio {
         font-size: 13px;
         color: var(--text-secondary);
         line-height: 1.7;
     }
-
-    /* LINKS */
+/* LINKS */
     .links-row {
         display: flex;
         gap: 10px;
         flex-wrap: wrap;
         margin-top: 0;
     }
-
     .btn-outline {
         background: var(--bg-card);
         color: var(--text-secondary);
@@ -353,34 +305,28 @@
         gap: 7px;
         transition: all 0.2s;
     }
-
     .btn-outline:hover {
         border-color: var(--accent);
         color: var(--accent);
         transform: translateY(-1px);
     }
-
     .section-divider {
         height: 1px;
         background: var(--border);
         margin: 32px 0;
     }
-
     @media (max-width: 768px) {
         .hero-card {
             flex-direction: column;
         }
-
         .roles-grid {
             grid-template-columns: 1fr;
         }
     }
-
     @media (max-width: 480px) {
         .feature-grid {
             grid-template-columns: 1fr;
         }
-
         .tech-grid {
             grid-template-columns: repeat(2, 1fr);
         }
@@ -677,5 +623,4 @@
         LinkedIn Profile
     </a>
 </div>
-
 {% endblock %}

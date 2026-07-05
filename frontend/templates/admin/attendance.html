@@ -4,7 +4,6 @@
 <form method="GET" class="filter-form">
     <input type="text" name="date_from" placeholder="From Date" onfocus="this.type='date'; this.showPicker?.()"
         onblur="if(!this.value) this.type='text'">
-    
     <input type="text" name="date_to" placeholder="To Date" onfocus="this.type='date'; this.showPicker?.()"
         onblur="if(!this.value) this.type='text'">
     <select name="section" id="section-filter">
@@ -20,7 +19,6 @@
         {% endfor %}
     </select>
     <button type="submit" class="btn-primary">Filter</button>
-
     <a href="#" id="download-btn" class="btn-success">Download Student Data</a>
 </form>
 
@@ -138,7 +136,6 @@
         if (dateTo) url += `&date_to=${dateTo}`;
         if (selectedSection && type === 'student') url += `&section=${selectedSection}`;
         if (selectedSemester && type === 'student') url += `&semester=${selectedSemester}`;
-
         btn.href = url;
         btn.innerHTML = `Download ${type.charAt(0).toUpperCase() + type.slice(1)} Data`;
     }
@@ -149,24 +146,19 @@
             tabContents[i].classList.remove("active");
             tabContents[i].style.display = "none";
         }
-
         var tabButtons = document.getElementsByClassName("tab-btn");
         for (var i = 0; i < tabButtons.length; i++) {
             tabButtons[i].classList.remove("active");
         }
-
         document.getElementById(tabId).classList.add("active");
         document.getElementById(tabId).style.display = "block";
         evt.currentTarget.classList.add("active");
-
-        // Disable section/semester filters when Teacher tab is active
+        // section/semester filter is disabled when Teacher tab is active
         document.getElementById('section-filter').disabled = (type === 'teacher');
         document.getElementById('semester-filter').disabled = (type === 'teacher');
-
-        // Update download link
+        // update download link
         updateDownloadLink(type);
     }
-
     // Set initial link
     updateDownloadLink('student');
 </script>

@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Face Recognition Attendance System</title>
-    <!-- Favicon / Browser Tab Logo -->
+<!-- Favicon / Browser Tab Logo -->
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script>
@@ -59,7 +59,6 @@
         <div class="alert alert-{{ category }}">{{ message }}</div>
         {% endfor %}
         {% endwith %}
-
         {% block content %}{% endblock %}
     </div>
 
@@ -70,7 +69,6 @@
             nav.classList.toggle('open');
             btn.textContent = nav.classList.contains('open') ? '✕' : '☰';
         }
-
         document.addEventListener('click', function (e) {
             const nav = document.getElementById('nav-links');
             const btn = document.getElementById('hamburger');
@@ -79,24 +77,20 @@
                 btn.textContent = '☰';
             }
         });
-
-        // থিম টগল করার ম্যাজিক ফাংশন
         function toggleTheme() {
             const root = document.documentElement;
             const btn = document.getElementById('theme-toggle-btn');
-
             root.classList.toggle('light-theme');
 
             if (root.classList.contains('light-theme')) {
                 localStorage.setItem('theme', 'light');
-                btn.textContent = '🌙'; // লাইট মোডে চাঁদের আইকন দেখাবে
+                btn.textContent = '🌙';
             } else {
                 localStorage.setItem('theme', 'dark');
-                btn.textContent = '☀️'; // ডার্ক মোডে সূর্যের আইকন দেখাবে
+                btn.textContent = '☀️';
             }
         }
-
-        // পেজ লোড হওয়ার পর আইকন আপডেট করা
+// পেজ লোড হওয়ার পর আইকন আপডেট করা
         window.addEventListener('DOMContentLoaded', () => {
             const btn = document.getElementById('theme-toggle-btn');
             if (btn) {
@@ -105,5 +99,4 @@
         });
     </script>
 </body>
-
 </html>

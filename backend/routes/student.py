@@ -21,7 +21,6 @@ def my_courses():
         courses = db.query(Course).filter(Course.id.in_(course_ids)).all()
     finally:
         db.close()
-
     return render_template("student/courses.html", courses=courses)
 
 @student_bp.route("/course/<int:course_id>/dashboard")

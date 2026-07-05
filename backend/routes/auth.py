@@ -8,15 +8,11 @@ from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
 from database import get_cr_by_email
 import os
-
 load_dotenv()
-
 auth_bp = Blueprint("auth", __name__)
 
 SECRET_KEY = "attendance_reset_secret_2024"
 serializer = URLSafeTimedSerializer(SECRET_KEY)
-
-
 class LoginUser:
     def __init__(self, data, role):
         self.id = data.get("roll", data.get("name", "admin"))
@@ -32,7 +28,6 @@ class LoginUser:
 
     def get_id(self):
         return f"{self.role}:{self.email}"
-
 
 def send_reset_email(to_email, reset_link):
     try:
@@ -55,9 +50,9 @@ def send_reset_email(to_email, reset_link):
                 <p>আপনি password reset এর request করেছেন।</p>
                 <p>নিচের button এ click করুন:</p>
                 <a href="{reset_link}"
-                   style="background:#6366f1;color:white;padding:12px 24px;
-                          border-radius:8px;text-decoration:none;display:inline-block;
-                          margin:16px 0">
+                style="background:#6366f1;color:white;padding:12px 24px;
+                        border-radius:8px;text-decoration:none;display:inline-block;
+                        margin:16px 0">
                     Password Reset করুন
                 </a>
                 <p style="color:#888;font-size:12px">
@@ -68,9 +63,7 @@ def send_reset_email(to_email, reset_link):
         </body>
         </html>
         """
-
         msg.attach(MIMEText(body, "html", "utf-8"))
-
         server = smtplib.SMTP(BREVO_SMTP, BREVO_PORT)
         server.ehlo()
         server.starttls()
@@ -82,14 +75,12 @@ def send_reset_email(to_email, reset_link):
         print(f"[ERROR] Reset email পাঠানো যায়নি — {e}")
         return False
 
-
 @auth_bp.route("/", methods=["GET", "POST"])
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         email = request.form.get("email", "").strip()
         password = request.form.get("password", "").strip()
-
         admin = get_admin_from_env()
         admin_email2 = os.getenv("ADMIN_EMAIL2", "")
 
@@ -115,18 +106,14 @@ def login():
             user = LoginUser(teacher, "teacher")
             login_user(user)
             return redirect(url_for("teacher.dashboard"))
-
         flash("Email বা Password ভুল!", "error")
-
     return render_template("login.html")
-
 
 @auth_bp.route("/logout")
 @login_required
 def logout():
     logout_user()
     return redirect(url_for("auth.login"))
-
 
 @auth_bp.route("/forgot-password", methods=["GET", "POST"])
 def forgot_password():
@@ -146,9 +133,7 @@ def forgot_password():
                 flash("Email পাঠাতে সমস্যা হয়েছে!", "error")
         else:
             flash("এই email দিয়ে কোনো Admin account নেই!", "error")
-
     return render_template("forgot_password.html")
-
 
 @auth_bp.route("/reset-password/<token>", methods=["GET", "POST"])
 def reset_password(token):
@@ -187,10 +172,7 @@ def reset_password(token):
                     f.write(f"ADMIN_PASSWORD={new_pass}\n")
                 else:
                     f.write(line)
-
         load_dotenv(env_path, override=True)
-
         flash("Password সফলভাবে পরিবর্তন হয়েছে! এখন login করুন।", "success")
         return redirect(url_for("auth.login"))
-
     return render_template("reset_password.html", token=token)

@@ -16,7 +16,6 @@ BREVO_SMTP = os.getenv("BREVO_SMTP")
 BREVO_LOGIN = os.getenv("BREVO_LOGIN")
 BREVO_PASSWORD = os.getenv("BREVO_PASSWORD")
 
-
 def send_email(to_email, subject, body):
     try:
         api_key = os.getenv("BREVO_API_KEY")
@@ -49,7 +48,6 @@ def send_email(to_email, subject, body):
 def send_absent_notifications(target_date=None):
     if not target_date:
         target_date = date.today().strftime("%Y-%m-%d")
-
     db = SessionLocal()
     present_rolls = db.query(Attendance.roll_number).filter(
         Attendance.date == target_date,
@@ -57,7 +55,6 @@ def send_absent_notifications(target_date=None):
     ).all()
     present_rolls = [p[0] for p in present_rolls]
     db.close()
-
     all_students = load_students_from_excel()
     absent_students = [s for s in all_students if s["roll"] not in present_rolls]
 
@@ -68,7 +65,6 @@ def send_absent_notifications(target_date=None):
         guardian_email = student.get("guardian_email", "")
         if not guardian_email or guardian_email == "nan":
             continue
-
         subject = f"⚠️ অনুপস্থিতির বিজ্ঞপ্তি — {student['name']} — {target_date}"
         body = f"""
         <html>
@@ -76,7 +72,7 @@ def send_absent_notifications(target_date=None):
             <meta charset="UTF-8">
         </head>
         <body style="font-family: Arial, sans-serif; max-width: 600px;
-                     margin: 0 auto; padding: 20px; background: #f9f9f9;">
+                    margin: 0 auto; padding: 20px; background: #f9f9f9;">
             <div style="background: white; border-radius: 8px;
                         padding: 28px; border: 1px solid #e0e0e0;">
 
@@ -103,22 +99,22 @@ def send_absent_notifications(target_date=None):
                         <tr>
                             <td style="color: #888; padding: 4px 0;">নাম</td>
                             <td style="color: #333; font-weight: bold;
-                                       text-align: right;">{student['name']}</td>
+                                    text-align: right;">{student['name']}</td>
                         </tr>
                         <tr>
                             <td style="color: #888; padding: 4px 0;">Roll</td>
                             <td style="color: #333; font-weight: bold;
-                                       text-align: right;">{student['roll']}</td>
+                                    text-align: right;">{student['roll']}</td>
                         </tr>
                         <tr>
                             <td style="color: #888; padding: 4px 0;">Section</td>
                             <td style="color: #333; font-weight: bold;
-                                       text-align: right;">{student['section']}</td>
+                                    text-align: right;">{student['section']}</td>
                         </tr>
                         <tr>
                             <td style="color: #888; padding: 4px 0;">তারিখ</td>
                             <td style="color: #333; font-weight: bold;
-                                       text-align: right;">{target_date}</td>
+                                    text-align: right;">{target_date}</td>
                         </tr>
                     </table>
                 </div>
