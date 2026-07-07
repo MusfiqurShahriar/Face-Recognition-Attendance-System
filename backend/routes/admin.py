@@ -34,6 +34,16 @@ DESIGNATION_RANK = {
 def get_teacher_rank(designation):
     return DESIGNATION_RANK.get(designation, 99)
 
+def roll_batch_sort_key(roll):
+    # roll number এর প্রথম ২ ডিজিট batch/session year বহন করে (যেমন 230501 => batch 23)
+    # নিজের/নতুন batch আগে (descending), একই batch এর মধ্যে roll ascending
+    roll = roll or ""
+    try:
+        batch = int(roll[:2])
+    except:
+        batch = 0
+    return (-batch, roll)
+
 def clear_dashboard_cache():
     global _DASHBOARD_CACHE, _DASHBOARD_CACHE_TIME
     _DASHBOARD_CACHE = {}
@@ -191,24 +201,19 @@ def course_dashboard(session_id, course_id):
         today_records = student_records + teacher_records
 
         enrolled = db.query(Enrollment).filter(Enrollment.course_id == course_id).all()
-        students_list = [{"roll": e.roll_number, "name": e.name, "section": None} for e in enrolled]
+        students_list = sorted(
+            [{"roll": e.roll_number, "name": e.name, "section": None} for e in enrolled],
+            key=lambda s: roll_batch_sort_key(s.get("roll"))
+        )
         total_students = len(students_list)
         today_present = len(student_records)
         today_absent = total_students - today_present
         sections = sorted(list(set([s["section"] for s in students_list if s.get("section")])))
 
-        def student_dict_sort_key(s):
-            sec = s.get("section", "0-0")
-            try:
-                first_year = int(sec.split("-")[0])
-            except:
-                first_year = 0
-            return (-first_year, s.get("roll", ""))
-
         present_rolls = [r.roll_number for r in student_records]
         absent_students = sorted(
             [s for s in students_list if s.get("roll") not in present_rolls],
-            key=student_dict_sort_key
+            key=lambda s: roll_batch_sort_key(s.get("roll"))
         )
 
         # কোর্সে teacher enrollment এখনো নেই, তাই খালি রাখা হলো (ভবিষ্যতে যোগ করা যাবে)
@@ -304,6 +309,44 @@ def dashboard():
         db.close()
     return render_template("admin/sessions.html", sessions=sessions)
 
+@admin_bp.route("/teachers/attendance")
+@login_required
+@admin_required
+def teacher_attendance():
+    today = datetime.now().strftime("%Y-%m-%d")
+    db = SessionLocal()
+    try:
+        today_records = db.query(Attendance).filter(
+            Attendance.date == today,
+            Attendance.role == "teacher"
+        ).all()
+
+        teacher_records = sorted(today_records, key=lambda x: get_teacher_rank(x.section))
+
+        all_teachers = load_teachers_from_excel()
+        present_names = [r.name for r in teacher_records]
+
+        absent_teachers = sorted(
+            [t for t in all_teachers if t["name"] not in present_names],
+            key=lambda t: get_teacher_rank(t.get("designation"))
+        )
+
+        total_teachers = len(all_teachers)
+        today_present = len(teacher_records)
+        today_absent = total_teachers - today_present
+    finally:
+        db.close()
+
+    return render_template("admin/teacher_attendance.html",
+        today=today,
+        teacher_records=teacher_records,
+        absent_teachers=absent_teachers,
+        total_teachers=total_teachers,
+        today_present=today_present,
+        today_absent=today_absent,
+        all_registered_teachers=all_teachers
+    )
+
 @admin_bp.route("/session/<int:session_id>/courses")
 @login_required
 @admin_required
@@ -327,10 +370,19 @@ def course_history(session_id, course_id):
 
         records = db.query(Attendance).filter(
             Attendance.course_id == course_id
-        ).order_by(Attendance.date, Attendance.roll_number).all()
+        ).order_by(Attendance.date).all()
 
         student_records = [r for r in records if r.role == "student"]
         teacher_records = [r for r in records if r.role == "teacher"]
+
+        student_records = sorted(
+            student_records,
+            key=lambda r: (r.date, roll_batch_sort_key(r.roll_number))
+        )
+        teacher_records = sorted(
+            teacher_records,
+            key=lambda r: (r.date, roll_batch_sort_key(r.roll_number))
+        )
     finally:
         db.close()
 
@@ -386,7 +438,7 @@ def course_percentage(session_id, course_id):
                 "percentage": percentage
             })
 
-        result = sorted(result, key=lambda x: x["roll"] or "")
+        result = sorted(result, key=lambda x: roll_batch_sort_key(x.get("roll")))
     finally:
         db.close()
 
@@ -444,7 +496,7 @@ def course_export_percentage(session_id, course_id):
                 "total": total_days,
                 "percentage": percentage
             })
-        result = sorted(result, key=lambda x: x["roll"] or "")
+        result = sorted(result, key=lambda x: roll_batch_sort_key(x.get("roll")))
 
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -698,7 +750,8 @@ def manual_attendance():
     identifier = request.form.get("identifier", "").strip()
     status = request.form.get("status", "On Time")
     custom_date = request.form.get("date")
-
+    course_id = request.form.get("course_id", type=int)
+    session_id = request.form.get("session_id", type=int)
     if not custom_date:
         custom_date = datetime.now().strftime("%Y-%m-%d")
 
@@ -712,7 +765,8 @@ def manual_attendance():
             for student in all_students:
                 exists = db.query(Attendance).filter(
                     Attendance.name == student["name"],
-                    Attendance.date == custom_date
+                    Attendance.date == custom_date,
+                    Attendance.course_id == course_id
                 ).first()
                 if not exists:
                     new_record = Attendance(
@@ -724,7 +778,9 @@ def manual_attendance():
                         date=custom_date,
                         time=time_str,
                         status=status,
-                        semester=student.get("semester", "")
+                        semester=student.get("semester", ""),
+                        course_id=course_id,
+                        session_id=session_id
                     )
                     db.add(new_record)
                     count += 1
@@ -760,7 +816,8 @@ def manual_attendance():
 
             exists = db.query(Attendance).filter(
                 Attendance.name == target_name,
-                Attendance.date == custom_date
+                Attendance.date == custom_date,
+                Attendance.course_id == course_id
             ).first()
 
             if exists:
@@ -775,7 +832,9 @@ def manual_attendance():
                     date=custom_date,
                     time=time_str,
                     status=status,
-                    semester=target_semester
+                    semester=target_semester,
+                    course_id=course_id,
+                    session_id=session_id
                 )
                 db.add(new_record)
                 db.commit()

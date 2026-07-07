@@ -196,9 +196,7 @@ def sync_offline():
             os.remove(OFFLINE_FILE)
         print("[INFO] সব অফলাইন ডেটা আপলোড হয়েছে!\n")
 
-# ==========================================
 # Attendance Marking
-# ==========================================
 def mark_attendance(name, role):
     if active_course_id is None:
         return "Waiting for Course"
