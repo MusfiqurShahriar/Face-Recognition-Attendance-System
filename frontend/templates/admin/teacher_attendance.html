@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="tabs-container" style="margin-bottom: 15px;">
+    <a href="{{ url_for('admin.dashboard') }}" class="back-link">← Dashboard এ ফিরুন</a>
+</div>
+<h2>Teachers' Attendance ({{ today }})</h2>
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-number">{{ total_teachers }}</div>
+        <div class="stat-label">মোট Teacher</div>
+    </div>
+    <div class="stat-card present">
+        <div class="stat-number">{{ today_present }}</div>
+        <div class="stat-label">আজ উপস্থিত</div>
+    </div>
+    <div class="stat-card absent">
+        <div class="stat-number">{{ today_absent }}</div>
+        <div class="stat-label">আজ অনুপস্থিত</div>
+    </div>
+</div>
+
+<div class="notification-box" style="margin-top: 20px; border-left: 4px solid #d59322;">
+    <div>
+        <h3>✍️ Manual Attendance Entry</h3>
+        <p>ক্যামেরায় সমস্যা হলে ম্যানুয়ালি attendance দিন</p>
+    </div>
+    <form method="POST" action="{{ url_for('admin.manual_attendance') }}"
+        style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top: 10px;">
+
+        <input type="hidden" name="role" value="teacher">
+
+        <input type="date" name="date" value="{{ today }}" required
+            style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 280px;">
+
+        <input type="text" name="identifier" id="teacher_target_input" list="teacher_list"
+            placeholder="Teacher Name সিলেক্ট করুন" required
+            style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 280px;">
+
+        <datalist id="teacher_list">
+            {% for teacher in all_registered_teachers %}
+            <option value="{{ teacher.name }}">({{ teacher.designation }})</option>
+            {% endfor %}
+        </datalist>
+
+        <select name="status" required
+            style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 280px;">
+            <option value="On Time">Present (On Time)</option>
+            <option value="Late">Present (Late)</option>
+        </select>
+
+        <button type="submit" class="btn-primary"
+            style="background-color: #d59322; border-color: #d59322; padding: 7px 15px; border-radius: 8px; color: white; cursor: pointer; width: 280px;">
+            Submit
+        </button>
+    </form>
+</div>
+
+<div class="notification-box"
+    style="margin-top: 20px; border-left: 4px solid var(--accent); background-color: var(--bg-card); padding: 20px; border-radius: 8px;">
+
+    <div>
+        <h3>✏️ Correct Incorrect Attendance</h3>
+        <p>সিস্টেম বা ম্যানুয়াল ভুলে এন্ট্রি হওয়া হাজিরা আপডেট করুন</p>
+    </div>
+
+    <form action="{{ url_for('admin.update_attendance') }}" method="POST"
+        style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top: 10px;">
+
+        <input type="hidden" name="role" value="teacher">
+
+        <input type="date" name="update_date" value="{{ today }}" required
+            style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 280px; outline: none;">
+
+        <input type="text" name="student_roll" id="edit_teacher_input" list="edit_teacher_list"
+            placeholder="টিচারের নাম খুঁজুন" required
+            style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 280px; outline: none;">
+
+        <datalist id="edit_teacher_list">
+            {% for teacher in all_registered_teachers %}
+            <option value="{{ teacher.name }}">({{ teacher.designation }})</option>
+            {% endfor %}
+        </datalist>
+
+        <select name="new_status" required
+            style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 280px; outline: none;">
+            <option value="">নতুন স্ট্যাটাস বাছুন</option>
+            <option value="On Time">Present (On Time)</option>
+            <option value="Late">Present (Late)</option>
+            <option value="Absent">Absent</option>
+        </select>
+
+        <button type="submit" class="btn-primary"
+            style="background-color: var(--accent); border: 1px solid var(--accent); padding: 7px 15px; border-radius: 8px; color: white; cursor: pointer; width: 280px; transition: all 0.2s;">
+            Update Record
+        </button>
+    </form>
+</div>
+
+<!-- Delete Attendance Section -->
+<div class="notification-box"
+    style="margin-top: 20px; border-left: 4px solid #dc3545; background-color: var(--bg-card); padding: 20px; border-radius: 8px;">
+    <div>
+        <h3 style="color: #dc3545;">🗑️ Delete Attendance Record</h3>
+        <p>নির্দিষ্ট কোনো দিনের টিচারদের হাজিরার রেকর্ড ডাটাবেজ থেকে মুছে ফেলুন</p>
+    </div>
+    <form method="POST" action="{{ url_for('admin.delete_attendance') }}"
+        onsubmit="return confirm('আপনি কি নিশ্চিত যে এই রেকর্ডগুলো চিরতরে মুছে ফেলতে চান? এটি আর ফেরত আনা যাবে না!');"
+        style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top: 10px;">
+        <input type="hidden" name="delete_scope" value="teacher">
+
+        <input type="date" name="delete_date" value="{{ today }}" required
+            style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 280px; outline: none;">
+
+        <button type="submit" class="btn-danger"
+            style="background-color: #dc3545; border: 1px solid #dc3545; padding: 7px 15px; border-radius: 8px; color: white; cursor: pointer; width: 280px; transition: background 0.2s;">
+            Delete Records
+        </button>
+    </form>
+</div>
+
+<h3>Today's Teacher Attendance List</h3>
+<div style="border-left: 4px solid #8b5cf6; border-radius: 8px; overflow: hidden;">
+    <table class="attendance-table" style="margin-top: 0;">
+        <thead>
+            <tr>
+                <th class="text-left">নাম</th>
+                <th class="text-left">পদবি (Designation)</th>
+                <th>সময়</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% set teacher_count = namespace(value=0) %}
+            {% for r in teacher_records %}
+            {% set teacher_count.value = teacher_count.value + 1 %}
+            <tr>
+                <td class="text-left">{{ r.name }}</td>
+                <td class="text-left"><span style="color: var(--warning)">{{ r.section }}</span></td>
+                <td>{{ r.time }}</td>
+                <td><span class="badge badge-on-time">Present</span></td>
+            </tr>
+            {% endfor %}
+            {% if teacher_count.value == 0 %}
+            <tr>
+                <td colspan="4" style="text-align:center; color:var(--text-muted); padding: 20px;">
+                    আজ কোনো শিক্ষক উপস্থিত নেই
+                </td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+{% if absent_teachers %}
+<div style="margin-top: 40px;">
+    <h3>Today's Absence List ({{ absent_teachers|length }})</h3>
+
+    <div class="absent-box" style="margin-top: 0; border-left: 4px solid #fb923c;">
+        <div class="absent-grid">
+            {% for t in absent_teachers %}
+            <div class="absent-card" style="border-left: 2px solid #fb923c;">
+                <div class="absent-name">{{ t.name }}</div>
+                <div class="absent-section" style="color:var(--warning)">{{ t.designation }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

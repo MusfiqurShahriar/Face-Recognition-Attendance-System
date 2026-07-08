@@ -843,6 +843,26 @@ h3 {
 .tab-content.active {
     display: block;
 }
+.back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    text-decoration: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+.back-link:hover {
+    background: color-mix(in srgb, var(--accent) 20%, transparent);
+    border-color: var(--accent);
+    transform: translateX(-3px);
+}
+
 
 /*ULTIMATE NATIVE DATE PICKER FIX*/
 /* ছোট স্ক্রিনের জন্য বক্সের সাইজ ঠিক রাখা */

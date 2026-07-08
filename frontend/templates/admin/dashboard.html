@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>আজকের উপস্থিতি ({{ today }})</h2>
+<h2>Today's Attendance ({{ today }})</h2>
 <div class="stats-grid">
     <div class="stat-card">
         <div class="stat-number">{{ total_students }}</div>
@@ -18,11 +18,13 @@
 
 <div class="notification-box">
     <div>
-        <h3>📧 Absent Notification পাঠান</h3>
+        <h3>📧 Send Absent Notification</h3>
         <p>অনুপস্থিত সবার Guardian এই Email পাবে</p>
     </div>
     <form method="POST" action="{{ url_for('admin.send_notifications') }}"
         style="display:flex; gap:10px; align-items:center">
+        <input type="hidden" name="course_id" value="{{ course.id }}">
+        <input type="hidden" name="session_id" value="{{ session_id }}">
         <input type="date" name="date" value="{{ today }}" style="background:var(--bg-primary); border:1px solid var(--border);
                     border-radius:8px; padding:7px 12px; color:var(--text-primary)">
         <button type="submit" class="btn-danger" onclick="return confirm('অনুপস্থিত সবাইকে email পাঠাবো?')">
@@ -36,41 +38,39 @@
         <h3>✍️ Manual Attendance Entry</h3>
         <p>ক্যামেরায় সমস্যা হলে ম্যানুয়ালি attendance দিন</p>
     </div>
-    <form method="POST" action="{{ url_for('admin.manual_attendance') }}"
+    <form action="{{ url_for('admin.manual_attendance') }}" method="POST"
         style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top: 10px;">
-    
-        <input type="date" name="date" value="{{ today }}" required
-            style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 280px;">
-    
-        <select name="role" id="role_selector" required onchange="toggleDatalist()"
-            style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 280px;">
-            <option value="student">👨‍🎓 Student</option>
-            <option value="teacher">🧑‍🏫 Teacher</option>
-        </select>
-    
+
+        <input type="hidden" name="role" value="student">
+        <input type="hidden" name="course_id" value="{{ course.id }}">
+        <input type="hidden" name="session_id" value="{{ session_id }}">
+        <input type="hidden" name="redirect_url" value="{{ request.full_path }}">
+
+        <input type="date" name="update_date" value="{{ today }}" required
+            style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 280px; outline: none;">
+
+        <!--
+            BUG FIX: আগে datalist-এর option value ছিল student.name,
+            কিন্তু placeholder এবং backend দুইটাই roll number আশা করে।
+            এখন value = student.roll করা হয়েছে, label-এ নাম দেখানো হচ্ছে।
+        -->
         <input type="text" name="identifier" id="target_input" list="student_list"
-            placeholder="Student Roll বা 'All' সিলেক্ট করুন" required
+            placeholder="Student Roll লিখুন বা 'All' সিলেক্ট করুন" required
             style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 280px;">
-    
+
         <datalist id="student_list">
             <option value="All">All Students (একসাথে সব স্টুডেন্ট)</option>
             {% for student in all_registered_students %}
-            <option value="{{ student.name }}">[Roll: {{ student.roll }}]</option>
+            <option value="{{ student.roll }}">{{ student.name }} (Roll: {{ student.roll }})</option>
             {% endfor %}
         </datalist>
-    
-        <datalist id="teacher_list">
-            {% for teacher in all_registered_teachers %}
-            <option value="{{ teacher.name }}">({{ teacher.designation }})</option>
-            {% endfor %}
-        </datalist>
-    
+
         <select name="status" required
             style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 280px;">
             <option value="On Time">Present (On Time)</option>
             <option value="Late">Present (Late)</option>
         </select>
-    
+
         <button type="submit" class="btn-primary"
             style="background-color: #d59322; border-color: #d59322; padding: 7px 15px; border-radius: 8px; color: white; cursor: pointer; width: 280px;">
             Submit
@@ -82,21 +82,19 @@
     style="margin-top: 20px; border-left: 4px solid var(--accent); background-color: var(--bg-card); padding: 20px; border-radius: 8px;">
 
     <div>
-        <h3>✏️ ভুল হাজিরা সংশোধন করুন</h3>
+        <h3>✏️ Correct Incorrect Attendance</h3>
         <p>সিস্টেম বা ম্যানুয়াল ভুলে এন্ট্রি হওয়া হাজিরা আপডেট করুন</p>
     </div>
 
     <form action="{{ url_for('admin.update_attendance') }}" method="POST"
         style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top: 10px;">
 
+        <input type="hidden" name="role" value="student">
+        <input type="hidden" name="course_id" value="{{ course.id }}">
+        <input type="hidden" name="session_id" value="{{ session_id }}">
+        <input type="hidden" name="redirect_url" value="{{ request.full_path }}">
         <input type="date" name="update_date" value="{{ today }}" required
             style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 280px; outline: none;">
-
-        <select name="role" id="edit_role_selector" required onchange="toggleEditDatalist()"
-            style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 280px; outline: none;">
-            <option value="student">👨‍🎓 Student</option>
-            <option value="teacher">🧑‍🏫 Teacher</option>
-        </select>
 
         <input type="text" name="student_roll" id="edit_target_input" list="edit_student_list"
             placeholder="স্টুডেন্টের রোল খুঁজুন" required
@@ -108,15 +106,9 @@
             {% endfor %}
         </datalist>
 
-        <datalist id="edit_teacher_list">
-            {% for teacher in all_registered_teachers %}
-            <option value="{{ teacher.name }}">({{ teacher.designation }})</option>
-            {% endfor %}
-        </datalist>
-
         <select name="new_status" required
             style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 280px; outline: none;">
-            <option value="">নতুন স্ট্যাটাস বাছুন</option>
+            <option value="">Select a New Status</option>
             <option value="On Time">Present (On Time)</option>
             <option value="Late">Present (Late)</option>
             <option value="Absent">Absent</option>
@@ -129,21 +121,6 @@
     </form>
 </div>
 
-<script>
-    function toggleEditDatalist() {
-        var role = document.getElementById('edit_role_selector').value;
-        var input = document.getElementById('edit_target_input');
-        input.value = '';
-        if (role === 'student') {
-            input.setAttribute('list', 'edit_student_list');
-            input.placeholder = "স্টুডেন্টের রোল খুঁজুন";
-        } else {
-            input.setAttribute('list', 'edit_teacher_list');
-            input.placeholder = "টিচারের নাম খুঁজুন";
-        }
-    }
-
-</script>
 <!-- Delete Attendance Section -->
 <div class="notification-box"
     style="margin-top: 20px; border-left: 4px solid #dc3545; background-color: var(--bg-card); padding: 20px; border-radius: 8px;">
@@ -154,14 +131,18 @@
     <form method="POST" action="{{ url_for('admin.delete_attendance') }}"
         onsubmit="return confirm('আপনি কি নিশ্চিত যে এই রেকর্ডগুলো চিরতরে মুছে ফেলতে চান? এটি আর ফেরত আনা যাবে না!');"
         style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top: 10px;">
+
+        <input type="hidden" name="course_id" value="{{ course.id }}">
+        <input type="hidden" name="session_id" value="{{ session_id }}">
+        <input type="hidden" name="redirect_url" value="{{ request.full_path }}">
+
         <input type="date" name="delete_date" value="{{ today }}" required
             style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 280px; outline: none;">
-        
+
         <select name="delete_scope" required
             style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 280px; outline: none; cursor: pointer;">
             <option value="all">💥 All Records</option>
             <option value="student">👨‍🎓 Students Only</option>
-            <option value="teacher">🧑‍🏫 Teachers Only</option>
         </select>
 
         <button type="submit" class="btn-danger"
@@ -170,141 +151,65 @@
         </button>
     </form>
 </div>
-
 <div class="chart-box">
     <h3>একনজরে শেষ ৭ দিনের Attendance Trend</h3>
     <div style="position:relative; height:230px; width:100%">
         <canvas id="attendanceChart"></canvas>
     </div>
 </div>
-<h3>আজকের Attendance List</h3>
+<h3>Today's Attendance List</h3>
 
-<div class="tabs-container">
-    <button class="tab-btn active" onclick="switchPresentTab(event, 'students-tab')">👨‍🎓 Students</button>
-    <button class="tab-btn" onclick="switchPresentTab(event, 'teachers-tab')">🧑‍🏫 Teachers</button>
+<div style="border-left: 4px solid var(--success); border-radius: 8px; overflow: hidden;">
+    <table class="attendance-table" style="margin-top: 0;">
+        <thead>
+            <tr>
+                <th>Roll</th>
+                <th class="text-left">নাম</th>
+                <th>Session</th>
+                <th>সময়</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% set student_count = namespace(value=0) %}
+            {% for r in today_records %}
+            {% set student_count.value = student_count.value + 1 %}
+            <tr>
+                <td>{{ r.roll_number or "—" }}</td>
+                <td class="text-left">{{ r.name }}</td>
+                <td>{{ r.section or "—" }}</td>
+                <td>{{ r.time }}</td>
+                <td>
+                    <span class="badge badge-{{ r.status.lower().replace(' ', '-') }}">
+                        {{ r.status }}
+                    </span>
+                </td>
+            </tr>
+            {% endfor %}
+            {% if student_count.value == 0 %}
+            <tr>
+                <td colspan="5" style="text-align:center; color:var(--text-muted); padding: 20px;">
+                    No students are present today.
+                </td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
 </div>
 
-<div id="students-tab" class="tab-content active">
-    <div style="border-left: 4px solid var(--success); border-radius: 8px; overflow: hidden;">
-        <table class="attendance-table" style="margin-top: 0;">
-            <thead>
-                <tr>
-                    <th>Roll</th>
-                    <th class="text-left">নাম</th>
-                    <th>Session</th>
-                    <th>সময়</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% set student_count = namespace(value=0) %}
-                {% for r in today_records if r.role != 'teacher' %}
-                {% set student_count.value = student_count.value + 1 %}
-                <tr>
-                    <td>{{ r.roll_number or "—" }}</td>
-                    <td class="text-left">{{ r.name }}</td>
-                    <td>{{ r.section or "—" }}</td>
-                    <td>{{ r.time }}</td>
-                    <td>
-                        <span class="badge badge-{{ r.status.lower().replace(' ', '-') }}">
-                            {{ r.status }}
-                        </span>
-                    </td>
-                </tr>
-                {% endfor %}
-                {% if student_count.value == 0 %}
-                <tr>
-                    <td colspan="5" style="text-align:center; color:var(--text-muted); padding: 20px;">
-                        আজ কোনো স্টুডেন্ট উপস্থিত নেই
-                    </td>
-                </tr>
-                {% endif %}
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<div id="teachers-tab" class="tab-content">
-    <div style="border-left: 4px solid #8b5cf6; border-radius: 8px; overflow: hidden;">
-        <table class="attendance-table" style="margin-top: 0;">
-            <thead>
-                <tr>
-                    <th class="text-left">নাম</th>
-                    <th class="text-left">পদবি (Designation)</th>
-                    <th>সময়</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% set teacher_count = namespace(value=0) %}
-                {% for r in today_records if r.role == 'teacher' %}
-                {% set teacher_count.value = teacher_count.value + 1 %}
-                <tr>
-                    <td class="text-left">{{ r.name }}</td>
-                    <td class="text-left"><span style="color: var(--warning)">{{ r.section }}</span></td>
-                    <td>{{ r.time }}</td>
-                    <td><span class="badge badge-on-time">Present</span></td>
-                </tr>
-                {% endfor %}
-                {% if teacher_count.value == 0 %}
-                <tr>
-                    <td colspan="4" style="text-align:center; color:var(--text-muted); padding: 20px;">
-                        আজ কোনো শিক্ষক উপস্থিত নেই
-                    </td>
-                </tr>
-                {% endif %}
-            </tbody>
-        </table>
-    </div>
-</div>
-
-{% if absent_students or absent_teachers %}
+{% if absent_students %}
 <div style="margin-top: 40px;">
-    <h3>আজকের Absence List</h3>
+    <h3>Today's Absence List ({{ absent_students|length }})</h3>
 
-    <div class="tabs-container">
-        <button class="tab-btn active" onclick="switchAbsentTab(event, 'absent-students-tab')">👨‍🎓 Students ({{
-            absent_students|length }})</button>
-        <button class="tab-btn" onclick="switchAbsentTab(event, 'absent-teachers-tab')">🧑‍🏫 Teachers ({{
-            absent_teachers|length }})</button>
-    </div>
-
-    <div id="absent-students-tab" class="absent-tab-content active" style="display: block;">
-        <div class="absent-box" style="margin-top: 0; border-left: 4px solid #ef4444;">
-            {% if absent_students %}
-            <div class="absent-grid">
-                {% for s in absent_students %}
-                <div class="absent-card" style="border-left: 2px solid #ef4444;">
-                    <div class="absent-name">{{ s.name }}</div>
-                    <div class="absent-roll" style="color: #ef4444; font-weight: bold;">Roll: {{ s.roll }}</div>
-                    <div class="absent-section">{{ s.section }}</div>
-                </div>
-                {% endfor %}
+    <div class="absent-box" style="margin-top: 0; border-left: 4px solid #ef4444;">
+        <div class="absent-grid">
+            {% for s in absent_students %}
+            <div class="absent-card" style="border-left: 2px solid #ef4444;">
+                <div class="absent-name">{{ s.name }}</div>
+                <div class="absent-roll" style="color: #ef4444; font-weight: bold;">Roll: {{ s.roll }}</div>
+                <div class="absent-section">{{ s.section }}</div>
             </div>
-            {% else %}
-            <div style="text-align:center; color:var(--text-muted); padding: 20px; width: 100%;">
-                আজ কোনো স্টুডেন্ট অনুপস্থিত নেই!
-            </div>
-            {% endif %}
-        </div>
-    </div>
-
-    <div id="absent-teachers-tab" class="absent-tab-content" style="display: none;">
-        <div class="absent-box" style="margin-top: 0; border-left: 4px solid #fb923c;">
-            {% if absent_teachers %}
-            <div class="absent-grid">
-                {% for t in absent_teachers %}
-                <div class="absent-card" style="border-left: 2px solid #fb923c;">
-                    <div class="absent-name">{{ t.name }}</div>
-                    <div class="absent-section" style="color:var(--warning)">{{ t.designation }}</div>
-                </div>
-                {% endfor %}
-            </div>
-            {% else %}
-            <div style="text-align:center; color:var(--text-muted); padding: 20px; width: 100%;">
-                আজ কোনো শিক্ষক অনুপস্থিত নেই!
-            </div>
-            {% endif %}
+            {% endfor %}
         </div>
     </div>
 </div>
@@ -312,7 +217,7 @@
 
 {% if low_attendance %}
 <div style="margin-top: 40px;">
-    <h3>⚠️ Low Attendance Alert (৭০% এর নিচে)</h3>
+    <h3>⚠️ Low Attendance Alert (Below 70%)</h3>
     <div class="alert-box" style="border-left: 4px solid #ef4444;">
         <table class="attendance-table" style="margin-top: 0;">
             <thead>
@@ -346,23 +251,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    function toggleDatalist() {
-        const role = document.getElementById('role_selector').value;
-        const inputField = document.getElementById('target_input');
-
-        if (role === 'student') {
-            inputField.setAttribute('list', 'student_list');
-            inputField.placeholder = "Student Roll লিখুন বা 'All' সিলেক্ট করুন";
-        } else {
-            inputField.setAttribute('list', 'teacher_list');
-            inputField.placeholder = "Teacher Name সিলেক্ট করুন";
-        }
-        inputField.value = "";
-    }
-
-    window.onload = function () {
-        toggleDatalist();
-    };
     const ctx = document.getElementById('attendanceChart').getContext('2d');
     new Chart(ctx, {
         type: 'bar',
@@ -408,35 +296,5 @@
         }
     }
 });
-
-    function switchPresentTab(evt, tabId) {
-        var tabContents = document.getElementsByClassName("tab-content");
-        for (var i = 0; i < tabContents.length; i++) {
-            tabContents[i].classList.remove("active");
-        }
-        var container = evt.currentTarget.parentElement;
-        var tabButtons = container.getElementsByClassName("tab-btn");
-        for (var i = 0; i < tabButtons.length; i++) {
-            tabButtons[i].classList.remove("active");
-        }
-        document.getElementById(tabId).classList.add("active");
-        evt.currentTarget.classList.add("active");
-    }
-
-    function switchAbsentTab(evt, tabId) {
-        var tabContents = document.getElementsByClassName("absent-tab-content");
-        for (var i = 0; i < tabContents.length; i++) {
-            tabContents[i].classList.remove("active");
-            tabContents[i].style.display = "none";
-        }
-        var container = evt.currentTarget.parentElement;
-        var tabButtons = container.getElementsByClassName("tab-btn");
-        for (var i = 0; i < tabButtons.length; i++) {
-            tabButtons[i].classList.remove("active");
-        }
-        document.getElementById(tabId).classList.add("active");
-        document.getElementById(tabId).style.display = "block";
-        evt.currentTarget.classList.add("active");
-    }
 </script>
 {% endblock %}

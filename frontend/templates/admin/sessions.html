@@ -33,6 +33,31 @@
         {% endif %}
 </div>
 
+<div class="section-divider"></div>
+
+<h2>🧑‍🏫 Teachers</h2>
+<p class="page-sub" style="margin-bottom: 20px; color: var(--text-muted);">
+        শিক্ষকদের উপস্থিতি দেখতে নিচের কার্ডে ক্লিক করুন
+</p>
+
+<div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:16px;">
+        <div class="session-card teacher-card"
+                onclick="window.location.href='{{ url_for('admin.teacher_attendance') }}'">
+                <div style="display:flex; align-items:center; justify-content:space-between;">
+                        <div style="display:flex; align-items:center; gap:14px;">
+                                <div class="session-icon teacher-icon">🧑‍🏫</div>
+                                <div>
+                                        <div style="font-size:1.3rem; font-weight:700; color:var(--text-primary);">
+                                                Teachers' Attendance</div>
+                                        <div style="font-size:0.85rem; color:var(--text-muted); margin-top:2px;">
+                                                শিক্ষকদের উপস্থিতি দেখতে ক্লিক করুন</div>
+                                </div>
+                        </div>
+                        <div style="font-size:1.4rem; color:#8b5cf6;">→</div>
+                </div>
+        </div>
+</div>
+
 <style>
         .session-card {
                 background: var(--bg-card);
@@ -43,11 +68,13 @@
                 cursor: pointer;
                 transition: all 0.2s ease;
         }
+
         .session-card:hover {
                 transform: translateX(4px);
                 background: var(--bg-primary);
                 box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
         }
+
         .session-icon {
                 width: 42px;
                 height: 42px;
@@ -57,6 +84,20 @@
                 background: rgba(99, 102, 241, 0.15);
                 border-radius: 10px;
                 font-size: 1.3rem;
+        }
+
+        .teacher-card {
+                border-left: 4px solid #8b5cf6;
+        }
+
+        .teacher-icon {
+                background: rgba(139, 92, 246, 0.15);
+        }
+
+        .section-divider {
+                border-top: 1px solid var(--border);
+                margin: 36px 0 28px;
+                opacity: 0.6;
         }
 </style>
 {% endblock %}

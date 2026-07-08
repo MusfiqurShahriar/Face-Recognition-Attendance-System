@@ -1,12 +1,25 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="tabs-container" style="margin-bottom: 15px;">
-    <a href="{{ url_for('admin.course_dashboard', session_id=session_id, course_id=course.id) }}" class="tab-btn">←
+    <a href="{{ url_for('admin.course_dashboard', session_id=session_id, course_id=course.id) }}" class="back-link">←
         Course Dashboard এ ফিরুন</a>
 </div>
 <h2>{{ course.course_name }} ({{ course.course_code }}) — Attendance Percentage</h2>
+
+<div class="notification-box" style="margin-bottom: 24px;">
+    <div>
+        <h3>📊 Filter Percentage</h3>
+        <p>নির্দিষ্ট তারিখের রেঞ্জ অনুযায়ী স্টুডেন্টদের উপস্থিতির হার দেখুন</p>
+    </div>
+    <form method="GET" class="filter-form" style="margin-bottom: 0;">
+        <input type="date" name="date_from" value="{{ date_from }}">
+        <input type="date" name="date_to" value="{{ date_to }}">
+        <button type="submit" class="btn-primary" style="padding: 10px 24px;">Filter</button>
+    </form>
+</div>
+
 <div style="margin-bottom: 20px;">
-    <a href="{{ url_for('admin.course_export_percentage', session_id=session_id, course_id=course.id) }}"
+    <a href="{{ url_for('admin.course_export_percentage', session_id=session_id, course_id=course.id, date_from=date_from, date_to=date_to) }}"
         class="btn-success">📥 Download Percentage</a>
 </div>
 <h3>শিক্ষার্থী উপস্থিতির হার (Student Attendance Percentage)</h3>
