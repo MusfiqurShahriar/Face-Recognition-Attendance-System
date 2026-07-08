@@ -368,9 +368,16 @@ def course_history(session_id, course_id):
     try:
         course_obj = db.query(Course).get(course_id)
 
-        records = db.query(Attendance).filter(
-            Attendance.course_id == course_id
-        ).order_by(Attendance.date).all()
+        date_from = request.args.get("date_from", "")
+        date_to = request.args.get("date_to", "")
+
+        query = db.query(Attendance).filter(Attendance.course_id == course_id)
+        if date_from:
+            query = query.filter(Attendance.date >= date_from)
+        if date_to:
+            query = query.filter(Attendance.date <= date_to)
+
+        records = query.order_by(Attendance.date).all()
 
         student_records = [r for r in records if r.role == "student"]
         teacher_records = [r for r in records if r.role == "teacher"]
@@ -390,7 +397,9 @@ def course_history(session_id, course_id):
         course=course_obj,
         session_id=session_id,
         student_records=student_records,
-        teacher_records=teacher_records
+        teacher_records=teacher_records,
+        date_from=date_from,
+        date_to=date_to
     )
 
 @admin_bp.route("/session/<int:session_id>/course/<int:course_id>/percentage")
@@ -548,10 +557,19 @@ def course_export_history(session_id, course_id):
     try:
         course_obj = db.query(Course).get(course_id)
 
-        records = db.query(Attendance).filter(
+        date_from = request.args.get("date_from", "")
+        date_to = request.args.get("date_to", "")
+
+        query = db.query(Attendance).filter(
             Attendance.course_id == course_id,
             Attendance.role == "student"
-        ).order_by(Attendance.date, Attendance.roll_number).all()
+        )
+        if date_from:
+            query = query.filter(Attendance.date >= date_from)
+        if date_to:
+            query = query.filter(Attendance.date <= date_to)
+
+        records = query.order_by(Attendance.date, Attendance.roll_number).all()
 
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -602,13 +620,15 @@ def course_export_history(session_id, course_id):
         as_attachment=True,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-
+    
 @admin_bp.route("/send-notifications", methods=["POST"])
 @login_required
 @admin_required
 def send_notifications():
     from email_sender import send_absent_notifications
     target_date = request.form.get("date", "")
+    course_id = request.form.get("course_id", type=int)      # <-- এই দুই লাইন এখানে বসাও
+    session_id = request.form.get("session_id", type=int)    # <--
     if not target_date:
         from datetime import date
         target_date = date.today().strftime("%Y-%m-%d")
@@ -621,7 +641,7 @@ def send_notifications():
         f"{result['failed']} জন failed।",
         "success"
     )
-    return redirect(url_for("admin.dashboard"))
+    return redirect(url_for('admin.course_dashboard', session_id=session_id, course_id=course_id))
 
 @admin_bp.route("/upload-students", methods=["GET", "POST"])
 @login_required
@@ -846,7 +866,7 @@ def manual_attendance():
         print(f"Error: {e}")
     finally:
         db.close()
-    return redirect(url_for('admin.dashboard'))
+    return redirect(url_for('admin.course_dashboard', session_id=session_id, course_id=course_id))
 
 @admin_bp.route('/update_attendance', methods=['POST'])
 def update_attendance():
@@ -854,14 +874,20 @@ def update_attendance():
     role_type = request.form.get('role')
     identifier = request.form.get('student_roll')
     new_status = request.form.get('new_status')
+    course_id = request.form.get('course_id', type=int)
+    session_id = request.form.get('session_id', type=int)
 
     if date_to_update and identifier and new_status:
         session = SessionLocal()
         try:
             if role_type == 'student':
-                record = session.query(Attendance).filter_by(date=date_to_update, roll_number=identifier).first()
+                record = session.query(Attendance).filter_by(
+                    date=date_to_update, roll_number=identifier, course_id=course_id
+                ).first()
             else:
-                record = session.query(Attendance).filter_by(date=date_to_update, name=identifier).first()
+                record = session.query(Attendance).filter_by(
+                    date=date_to_update, name=identifier, course_id=course_id
+                ).first()
 
             if record:
                 if new_status == 'Absent':
@@ -886,17 +912,19 @@ def update_attendance():
     else:
         flash("অনুগ্রহ করে তারিখ, ব্যক্তি এবং নতুন স্ট্যাটাস নির্বাচন করুন।", "danger")
 
-    return redirect(url_for('admin.dashboard'))
+    return redirect(url_for('admin.course_dashboard', session_id=session_id, course_id=course_id))
 
 @admin_bp.route('/delete_attendance', methods=['POST'])
 def delete_attendance():
     date_to_delete = request.form.get('delete_date')
     delete_scope = request.form.get('delete_scope')
+    course_id = request.form.get('course_id', type=int)
+    session_id = request.form.get('session_id', type=int)
 
     if date_to_delete:
         session = SessionLocal()
         try:
-            query = session.query(Attendance).filter_by(date=date_to_delete)
+            query = session.query(Attendance).filter_by(date=date_to_delete, course_id=course_id)
 
             if delete_scope == 'student':
                 records_to_delete = query.filter_by(role='student').all()
@@ -922,4 +950,5 @@ def delete_attendance():
             session.close()
     else:
         flash("অনুগ্রহ করে একটি তারিখ নির্বাচন করুন।", "danger")
-    return redirect(url_for('admin.dashboard'))
+
+    return redirect(url_for('admin.course_dashboard', session_id=session_id, course_id=course_id))

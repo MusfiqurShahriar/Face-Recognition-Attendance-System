@@ -100,131 +100,36 @@ def get_camera_command(camera_code):
         if not camera:
             return {"status": "error", "message": "Camera পাওয়া যায়নি"}, 404
 
+        # আগে pending command চেক করো (নতুন command থাকলে সেটাই প্রাধান্য পাবে)
         command = db.query(CameraCommand).filter(
             CameraCommand.camera_id == camera.id,
             CameraCommand.status == "pending"
         ).order_by(CameraCommand.created_at.desc()).first()
 
-        if not command:
+        if command:
+            command.status = "acknowledged"
+            camera.current_course_id = command.course_id
+            camera.current_session_id = command.session_id
+            db.commit()
+            course_id = command.course_id
+            session_id = command.session_id
+        elif camera.current_course_id is not None:
+            # কোনো নতুন pending command নেই, কিন্তু camera-র শেষ known course আছে
+            # restart/reconnect হলেও এটা দিয়ে camera সঠিক course এ কাজ চালিয়ে যাবে
+            course_id = camera.current_course_id
+            session_id = camera.current_session_id
+        else:
             return {"status": "no_command"}, 200
 
-        course = db.query(Course).get(command.course_id)
-
-        command.status = "acknowledged"
-        db.commit()
+        course = db.query(Course).get(course_id)
 
         return {
             "status": "success",
-            "course_id": command.course_id,
-            "session_id": command.session_id,
-            "course_code": course.course_code if course else None
+            "course_id": course_id,
+            "session_id": session_id,
         }, 200
     finally:
         db.close()
-
-# SMART BULK & MANUAL ATTENDANCE CONTROLLER
-@app.route("/admin/manual-attendance", methods=["POST"])
-def manual_attendance_fallback():
-    from database import SessionLocal, Attendance, load_students_from_excel, load_teachers_from_excel
-    from flask import request, flash, redirect
-    from datetime import datetime
-
-    role = request.form.get("role")
-    identifier = request.form.get("identifier", "").strip()
-    status = request.form.get("status", "On Time")
-    custom_date = request.form.get("date")
-
-    if not custom_date:
-        custom_date = datetime.now().strftime("%Y-%m-%d")
-    
-    time_str = datetime.now().strftime("%I:%M %p")
-    db = SessionLocal()
-
-    try:
-        # ১. "All" সিলেক্ট করলে সব স্টুডেন্টের হাজিরা
-        if role == "student" and identifier.lower() == "all":
-            all_students = load_students_from_excel()
-            count = 0
-            for student in all_students:
-                exists = db.query(Attendance).filter(Attendance.name == student["name"], Attendance.date == custom_date).first()
-                if not exists:
-                    new_record = Attendance(
-                        user_id=student.get("roll", student["name"]),
-                        name=student["name"],
-                        role="student",
-                        roll_number=student.get("roll", ""),
-                        section=student.get("section", ""),
-                        date=custom_date,
-                        time=time_str,
-                        status=status,
-                        semester=student.get("semester", "")
-                    )
-                    db.add(new_record)
-                    count += 1
-            db.commit()
-            flash(f"সফলভাবে মোট {count} জন শিক্ষার্থীর বাল্ক হাজিরা নেওয়া হয়েছে।", "success")
-        # ২. সিঙ্গেল স্টুডেন্ট বা টিচারের হাজিরা
-        else:
-            target_name = identifier
-            target_roll = ""
-            target_section = ""
-            target_semester = ""
-            db_role = "student" if role == "student" else "teacher"
-
-            if role == "student":
-                all_students = load_students_from_excel()
-                # স্মার্ট সার্চ
-                student_match = next((s for s in all_students if str(s.get("roll")) == identifier or s.get("name").lower() == identifier.lower()), None)
-                
-                if student_match:
-                    target_name = student_match["name"]
-                    target_roll = student_match.get("roll", "")
-                    target_section = student_match.get("section", "")
-                    target_semester = student_match.get("semester", "")
-                else:
-                    # ভুল নাম বা রোল দিলে,ডেটা সেভ না করে এরর মেসেজ দেবে
-                    flash(f"দুঃখিত, '{identifier}' নামে বা রোলে কোনো স্টুডেন্ট ডাটাবেজে পাওয়া যায়নি!", "danger")
-                    return redirect("/admin/dashboard")
-            else:
-                all_teachers = load_teachers_from_excel()
-                teacher_match = next((t for t in all_teachers if t["name"].lower() == identifier.lower()), None)
-                
-                if teacher_match:
-                    target_name = teacher_match["name"]
-                    target_section = teacher_match.get("designation", "")
-                else:
-                    flash(f"দুঃখিত, '{identifier}' নামে কোনো শিক্ষক পাওয়া যায়নি!", "danger")
-                    return redirect("/admin/dashboard")
-
-            # ডুপ্লিকেট চেক
-            exists = db.query(Attendance).filter(Attendance.name == target_name, Attendance.date == custom_date).first()
-            if exists:
-                flash(f"দুঃখিত, {target_name} এর হাজিরা আজ আগেই নেওয়া হয়েছে!", "danger")
-            else:
-                new_record = Attendance(
-                    user_id=target_roll if target_roll else target_name,
-                    name=target_name,
-                    role=db_role,
-                    roll_number=target_roll,
-                    section=target_section,
-                    date=custom_date,
-                    time=time_str,
-                    status=status,
-                    semester=target_semester
-                )
-                db.add(new_record)
-                db.commit()
-                flash(f"সফলভাবে {target_name} এর ম্যানুয়াল হাজিরা নেওয়া হয়েছে।", "success")
-
-    except Exception as e:
-        db.rollback()
-        print(f"Error: {e}")
-    finally:
-        db.close()
-
-    # রিডাইরেক্ট করে ড্যাশবোর্ডে পাঠিয়ে দেবে
-    return redirect("/admin/dashboard")
-
 
 from routes.admin import admin_bp
 from routes.student import student_bp

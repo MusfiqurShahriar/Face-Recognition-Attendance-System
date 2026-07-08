@@ -34,6 +34,13 @@ def dashboard():
                     status="pending"
                 )
                 db.add(new_command)
+
+                # Camera এর current course persist করো (restart-proof)
+                camera_obj = db.query(Camera).get(camera_id)
+                if camera_obj:
+                    camera_obj.current_course_id = course_id
+                    camera_obj.current_session_id = current_user.session_id
+
                 db.commit()
                 flash("Camera command পাঠানো হয়েছে!", "success")
 

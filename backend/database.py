@@ -101,9 +101,12 @@ class Enrollment(Base):
 class Camera(Base):
     __tablename__ = 'camera'
     id = Column(Integer, primary_key=True)
-    camera_code = Column(String(20), unique=True, nullable=False)  # "804", "805" ইত্যাদি
+    camera_code = Column(String(20), unique=True, nullable=False)
     room_name = Column(String(50))
     created_at = Column(DateTime, default=datetime.now)
+    current_course_id = Column(Integer, ForeignKey('course.id'), nullable=True)
+    current_session_id = Column(Integer, ForeignKey('session.id'), nullable=True)
+
 class CameraCommand(Base):
     __tablename__ = 'camera_command'
     id = Column(Integer, primary_key=True)
