@@ -5,12 +5,12 @@
     আপনার session-এর জন্য camera চালু করুন এবং attendance report দেখুন
 </p>
 <div
-    style="background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:24px; max-width:500px; margin-bottom:30px;">
+    style="background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:24px; max-width:500px; margin-bottom:14px;">
     <h3 style="margin-bottom:16px;">📷 Camera চালু করুন</h3>
-    <form method="POST">
+    <form method="POST" action="{{ url_for('cr.dashboard') }}">
         <div class="form-group" style="margin-bottom:14px;">
             <label>কোন Room / Camera:</label>
-            <select name="camera_id" required
+            <select name="camera_id" id="camera_select" required
                 style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:8px 12px; color:var(--text-primary); width:100%;">
                 <option value="">-- Camera সিলেক্ট করুন --</option>
                 {% for cam in cameras %}
@@ -30,6 +30,26 @@
             </select>
         </div>
         <button type="submit" class="btn-primary" style="width:100%; padding:10px;">Camera চালু করো</button>
+    </form>
+</div>
+
+<div
+    style="background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:24px; max-width:500px; margin-bottom:30px;">
+    <h3 style="margin-bottom:16px;">⏹️ Camera বন্ধ করুন</h3>
+    <form method="POST" action="{{ url_for('cr.stop_camera') }}">
+        <div class="form-group" style="margin-bottom:14px;">
+            <label>কোন Room / Camera বন্ধ করবেন:</label>
+            <select name="camera_id" required
+                style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:8px 12px; color:var(--text-primary); width:100%;">
+                <option value="">-- Camera সিলেক্ট করুন --</option>
+                {% for cam in cameras %}
+                <option value="{{ cam.id }}">Room {{ cam.camera_code }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn-danger"
+            style="width:100%; padding:10px; background:#c0392b; color:white; border:none; border-radius:8px; cursor:pointer;">Camera
+            বন্ধ করো</button>
     </form>
 </div>
 

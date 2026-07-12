@@ -12,14 +12,16 @@
     </p>
 
     <form method="POST" enctype="multipart/form-data">
-        <label>Which session is this sheet for?</label>
-        <select name="session_id" required
-            style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 100%; margin-bottom: 15px;">
-            <option value="">--Select Session--</option>
-            {% for s in sessions %}
-            <option value="{{ s.id }}">{{ s.name }}</option>
-            {% endfor %}
-        </select>
+        <div class="form-group" style="margin-bottom:14px;">
+            <label>কোন Semester এর জন্য এই sheet?</label>
+            <select name="semester" required
+                style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:8px 12px; color:var(--text-primary); width:100%;">
+                <option value="">-- Semester সিলেক্ট করুন --</option>
+                {% for s in semesters %}
+                <option value="{{ s }}">{{ s }}</option>
+                {% endfor %}
+            </select>
+        </div>
     
         <label>Excel File (.xlsx)</label>
         <input type="file" name="excel_file" accept=".xlsx">

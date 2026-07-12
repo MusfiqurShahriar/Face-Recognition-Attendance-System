@@ -3,6 +3,7 @@ from flask_login import login_required, current_user
 from database import SessionLocal, Attendance, load_students_from_excel, load_teachers_from_excel, get_admin_from_env
 from sqlalchemy import func
 from datetime import datetime
+from database import SEMESTER_ORDER, normalize_semester, get_batch_semester_map
 from database import Session, Course, Enrollment, CameraCommand
 import pandas as pd
 import io
@@ -49,40 +50,100 @@ def clear_dashboard_cache():
     _DASHBOARD_CACHE = {}
     _DASHBOARD_CACHE_TIME = 0
 
-@admin_bp.route("/session/<int:session_id>/course/add", methods=["POST"])
+@admin_bp.route("/session/add", methods=["POST"])
 @login_required
 @admin_required
-def add_course(session_id):
+def add_session():
+    db = SessionLocal()
+    try:
+        name = request.form.get("session_name", "").strip()
+ 
+        if not name:
+            flash("Session Name অবশ্যই দিতে হবে! (যেমন: 2025-26)", "error")
+        else:
+            existing = db.query(Session).filter(Session.name == name).first()
+            if existing:
+                flash(f"'{name}' নামে Session ইতিমধ্যে আছে!", "error")
+            else:
+                new_session = Session(name=name, is_active=1)
+                db.add(new_session)
+                db.commit()
+                flash(f"Session '{name}' যোগ হয়েছে!", "success")
+    finally:
+        db.close()
+    return redirect(url_for("admin.dashboard"))
+
+@admin_bp.route("/semester/<int:semester_index>/courses")
+@login_required
+@admin_required
+def semester_courses(semester_index):
+    if semester_index < 0 or semester_index >= len(SEMESTER_ORDER):
+        flash("ভুল Semester!", "error")
+        return redirect(url_for("admin.dashboard"))
+
+    semester_label = SEMESTER_ORDER[semester_index]
+
+    db = SessionLocal()
+    try:
+        courses = db.query(Course).filter(Course.semester == semester_label)\
+            .order_by(Course.course_code).all()
+
+        # এই semester এ এই মুহূর্তে কোনো active batch আছে কিনা বের করা হচ্ছে
+        normalized_semester_to_batch = get_batch_semester_map()
+        batch_name = normalized_semester_to_batch.get(normalize_semester(semester_label))
+        session_obj = None
+        if batch_name:
+            session_obj = db.query(Session).filter(
+                Session.name == batch_name, Session.is_active == 1
+            ).first()
+    finally:
+        db.close()
+
+    return render_template(
+        "admin/courses.html",
+        semester_label=semester_label,
+        semester_index=semester_index,
+        courses=courses,
+        session=session_obj
+    )
+
+@admin_bp.route("/semester/<int:semester_index>/course/add", methods=["POST"])
+@login_required
+@admin_required
+def add_course(semester_index):
+    if semester_index < 0 or semester_index >= len(SEMESTER_ORDER):
+        flash("ভুল Semester!", "error")
+        return redirect(url_for("admin.dashboard"))
+ 
+    semester_label = SEMESTER_ORDER[semester_index]
+ 
     db = SessionLocal()
     try:
         course_code = request.form.get("course_code", "").strip()
         course_name = request.form.get("course_name", "").strip()
-        section = request.form.get("section", "").strip()
-
+ 
         if not course_code or not course_name:
             flash("Course Code এবং Course Name অবশ্যই দিতে হবে!", "error")
         else:
             existing = db.query(Course).filter(
-                Course.session_id == session_id,
-                Course.course_code == course_code,
-                Course.section == section
+                Course.semester == semester_label,
+                Course.course_code == course_code
             ).first()
-
+ 
             if existing:
-                flash("এই Course Code ইতিমধ্যে এই Session-এ আছে!", "error")
+                flash("এই Course Code ইতিমধ্যে এই Semester-এ আছে!", "error")
             else:
                 new_course = Course(
-                    session_id=session_id,
+                    semester=semester_label,
                     course_code=course_code,
-                    course_name=course_name,
-                    section=section
+                    course_name=course_name
                 )
                 db.add(new_course)
                 db.commit()
                 flash(f"Course '{course_code}' যোগ হয়েছে!", "success")
     finally:
         db.close()
-    return redirect(url_for("admin.session_courses", session_id=session_id))
+    return redirect(url_for("admin.semester_courses", semester_index=semester_index))
 
 @admin_bp.route("/course/<int:course_id>/edit", methods=["POST"])
 @login_required
@@ -94,16 +155,19 @@ def edit_course(course_id):
         if not course:
             flash("Course পাওয়া যায়নি!", "error")
             return redirect(url_for("admin.dashboard"))
-        session_id = course.session_id
+ 
+        semester_label = course.semester
+        semester_index = SEMESTER_ORDER.index(semester_label) if semester_label in SEMESTER_ORDER else 0
+ 
         course.course_code = request.form.get("course_code", "").strip()
         course.course_name = request.form.get("course_name", "").strip()
-        course.section = request.form.get("section", "").strip()
-
+ 
         db.commit()
         flash("Course আপডেট হয়েছে!", "success")
     finally:
         db.close()
-    return redirect(url_for("admin.session_courses", session_id=session_id))
+    return redirect(url_for("admin.semester_courses", semester_index=semester_index))
+
 
 @admin_bp.route("/course/<int:course_id>/delete", methods=["POST"])
 @login_required
@@ -115,19 +179,20 @@ def delete_course(course_id):
         if not course:
             flash("Course পাওয়া যায়নি!", "error")
             return redirect(url_for("admin.dashboard"))
-
-        session_id = course.session_id
-        # সংশ্লিষ্ট enrollment মুছে ফেলা হচ্ছে
+ 
+        semester_label = course.semester
+        semester_index = SEMESTER_ORDER.index(semester_label) if semester_label in SEMESTER_ORDER else 0
+ 
         db.query(Enrollment).filter(Enrollment.course_id == course_id).delete()
-        # সংশ্লিষ্ট camera command মুছে ফেলা হচ্ছে
         db.query(CameraCommand).filter(CameraCommand.course_id == course_id).delete()
-
+ 
         db.delete(course)
         db.commit()
         flash("Course এবং সংশ্লিষ্ট enrollment মুছে ফেলা হয়েছে!", "success")
     finally:
         db.close()
-    return redirect(url_for("admin.session_courses", session_id=session_id))
+    return redirect(url_for("admin.semester_courses", semester_index=semester_index))
+
 
 @admin_bp.route("/unassigned-attendance", methods=["GET", "POST"])
 @login_required
@@ -138,7 +203,7 @@ def unassigned_attendance():
         if request.method == "POST":
             course_id = request.form.get("course_id")
             selected_dates = request.form.getlist("dates")
-
+ 
             if not course_id or not selected_dates:
                 flash("Course এবং অন্তত একটি তারিখ সিলেক্ট করুন!", "error")
             else:
@@ -148,13 +213,20 @@ def unassigned_attendance():
                 ).update({Attendance.course_id: course_id}, synchronize_session=False)
                 db.commit()
                 flash(f"{updated} টি রেকর্ড সফলভাবে assign করা হয়েছে!", "success")
-
-        # orphan record গুলো date অনুযায়ী গ্রুপ করে দেখানো
+ 
         orphan_dates = db.query(
             Attendance.date, func.count(Attendance.id)
         ).filter(Attendance.course_id.is_(None)).group_by(Attendance.date).order_by(Attendance.date.desc()).all()
-
-        all_courses = db.query(Course).order_by(Course.session_id, Course.course_code).all()
+ 
+        all_courses_raw = db.query(Course).order_by(Course.course_code).all()
+        # semester এর ক্রম (SEMESTER_ORDER) অনুযায়ী sort করা হচ্ছে, যেহেতু এখন session_id নেই Course এ
+        all_courses = sorted(
+            all_courses_raw,
+            key=lambda c: (
+                SEMESTER_ORDER.index(c.semester) if c.semester in SEMESTER_ORDER else 999,
+                c.course_code
+            )
+        )
     finally:
         db.close()
     return render_template("admin/unassigned_attendance.html", orphan_dates=orphan_dates, courses=all_courses)
@@ -200,7 +272,10 @@ def course_dashboard(session_id, course_id):
 
         today_records = student_records + teacher_records
 
-        enrolled = db.query(Enrollment).filter(Enrollment.course_id == course_id).all()
+        # এখন course-এর সব session (batch) মিলিয়ে সব student একসাথে দেখানো হচ্ছে
+        enrolled = db.query(Enrollment).filter(
+            Enrollment.course_id == course_id
+        ).all()
         students_list = sorted(
             [{"roll": e.roll_number, "name": e.name, "section": None} for e in enrolled],
             key=lambda s: roll_batch_sort_key(s.get("roll"))
@@ -216,7 +291,6 @@ def course_dashboard(session_id, course_id):
             key=lambda s: roll_batch_sort_key(s.get("roll"))
         )
 
-        # কোর্সে teacher enrollment এখনো নেই, তাই খালি রাখা হলো (ভবিষ্যতে যোগ করা যাবে)
         teachers_list = []
         absent_teachers = []
 
@@ -229,7 +303,10 @@ def course_dashboard(session_id, course_id):
         low_attendance = []
         if total_days > 0:
             attendance_results = db.query(Attendance.roll_number, func.count(Attendance.id))\
-                .filter(Attendance.role == "student", Attendance.course_id == course_id)\
+                .filter(
+                    Attendance.role == "student",
+                    Attendance.course_id == course_id
+                )\
                 .group_by(Attendance.roll_number).all()
 
             attendance_counts = {row[0]: row[1] for row in attendance_results}
@@ -256,7 +333,11 @@ def course_dashboard(session_id, course_id):
         start_date = (dt.today() - timedelta(days=6)).strftime("%Y-%m-%d")
 
         chart_results = db.query(Attendance.date, func.count(Attendance.roll_number.distinct()))\
-            .filter(Attendance.date >= start_date, Attendance.role == "student", Attendance.course_id == course_id)\
+            .filter(
+                Attendance.date >= start_date,
+                Attendance.role == "student",
+                Attendance.course_id == course_id
+            )\
             .group_by(Attendance.date).all()
 
         chart_counts = {row[0]: row[1] for row in chart_results}
@@ -298,16 +379,71 @@ def course_dashboard(session_id, course_id):
         db.close()
     return render_template("admin/dashboard.html", **_DASHBOARD_CACHE)
 
+SEMESTER_ORDER = [
+    "1st Year 1st Semester",
+    "1st Year 2nd Semester",
+    "2nd Year 1st Semester",
+    "2nd Year 2nd Semester",
+    "3rd Year 1st Semester",
+    "3rd Year 2nd Semester",
+    "4th Year 1st Semester",
+    "4th Year 2nd Semester",
+]
+
+def normalize_semester(text):
+    """
+    Excel এ কেউ 'Semester' বা ভুলবশত 'Semister' যেভাবেই লিখুক না কেন,
+    দুইটাকেই সমান ধরে match করার জন্য এই normalize function।
+    """
+    if not text:
+        return ""
+    return text.strip().lower().replace("semister", "semester").replace("  ", " ")
+ 
+ 
+# সঠিক (display-এর জন্য ব্যবহৃত) label -> normalized key ম্যাপ, একবারই তৈরি করা হচ্ছে
+_NORMALIZED_SEMESTER_ORDER = [
+    (idx, label, normalize_semester(label)) for idx, label in enumerate(SEMESTER_ORDER)
+]
+ 
+ 
 @admin_bp.route("/dashboard")
 @login_required
 @admin_required
 def dashboard():
     db = SessionLocal()
     try:
-        sessions = db.query(Session).filter(Session.is_active == 1).order_by(Session.name.asc()).all()
+        normalized_semester_to_batch = get_batch_semester_map()
+ 
+        all_sessions = db.query(Session).filter(Session.is_active == 1).all()
+        session_by_name = {s.name: s for s in all_sessions}
+ 
+        semester_cards = []
+        empty_semesters = []
+ 
+        for idx, sem_label in enumerate(SEMESTER_ORDER):
+            norm_label = normalize_semester(sem_label)
+            batch_name = normalized_semester_to_batch.get(norm_label)
+            session_obj = session_by_name.get(batch_name) if batch_name else None
+ 
+            card = {
+                "order": idx,
+                "semester_index": idx,
+                "semester_label": sem_label,
+                "session": session_obj,
+            }
+            if session_obj:
+                semester_cards.append(card)
+            else:
+                empty_semesters.append(card)
+ 
+        semester_cards.sort(key=lambda c: c["order"])
+        empty_semesters.sort(key=lambda c: c["order"])
+        ordered_cards = semester_cards + empty_semesters
+ 
     finally:
         db.close()
-    return render_template("admin/sessions.html", sessions=sessions)
+ 
+    return render_template("admin/sessions.html", semester_cards=ordered_cards)
 
 @admin_bp.route("/teachers/attendance")
 @login_required
@@ -347,19 +483,6 @@ def teacher_attendance():
         all_registered_teachers=all_teachers
     )
 
-@admin_bp.route("/session/<int:session_id>/courses")
-@login_required
-@admin_required
-def session_courses(session_id):
-    db = SessionLocal()
-    try:
-        session_obj = db.query(Session).get(session_id)
-        courses = db.query(Course).filter(Course.session_id == session_id)\
-            .order_by(Course.course_code).all()
-    finally:
-        db.close()
-    return render_template("admin/courses.html", session=session_obj, courses=courses)
-
 @admin_bp.route("/session/<int:session_id>/course/<int:course_id>/history")
 @login_required
 @admin_required
@@ -367,21 +490,16 @@ def course_history(session_id, course_id):
     db = SessionLocal()
     try:
         course_obj = db.query(Course).get(course_id)
-
         date_from = request.args.get("date_from", "")
         date_to = request.args.get("date_to", "")
-
         query = db.query(Attendance).filter(Attendance.course_id == course_id)
         if date_from:
             query = query.filter(Attendance.date >= date_from)
         if date_to:
             query = query.filter(Attendance.date <= date_to)
-
         records = query.order_by(Attendance.date).all()
-
         student_records = [r for r in records if r.role == "student"]
         teacher_records = [r for r in records if r.role == "teacher"]
-
         student_records = sorted(
             student_records,
             key=lambda r: (r.date, roll_batch_sort_key(r.roll_number))
@@ -392,7 +510,6 @@ def course_history(session_id, course_id):
         )
     finally:
         db.close()
-
     return render_template("admin/course_history.html",
         course=course_obj,
         session_id=session_id,
@@ -402,6 +519,7 @@ def course_history(session_id, course_id):
         date_to=date_to
     )
 
+
 @admin_bp.route("/session/<int:session_id>/course/<int:course_id>/percentage")
 @login_required
 @admin_required
@@ -409,12 +527,9 @@ def course_percentage(session_id, course_id):
     db = SessionLocal()
     try:
         course_obj = db.query(Course).get(course_id)
-
         date_from = request.args.get("date_from", "")
         date_to = request.args.get("date_to", "")
-
         enrolled = db.query(Enrollment).filter(Enrollment.course_id == course_id).all()
-
         days_query = db.query(Attendance.date).filter(
             Attendance.course_id == course_id,
             Attendance.role == "student"
@@ -424,7 +539,6 @@ def course_percentage(session_id, course_id):
         if date_to:
             days_query = days_query.filter(Attendance.date <= date_to)
         total_days = days_query.distinct().count()
-
         count_query = db.query(Attendance.roll_number, func.count(Attendance.id))\
             .filter(Attendance.course_id == course_id, Attendance.role == "student")
         if date_from:
@@ -432,9 +546,7 @@ def course_percentage(session_id, course_id):
         if date_to:
             count_query = count_query.filter(Attendance.date <= date_to)
         attendance_results = count_query.group_by(Attendance.roll_number).all()
-
         attendance_counts = {row[0]: row[1] for row in attendance_results}
-
         result = []
         for e in enrolled:
             present_count = attendance_counts.get(e.roll_number, 0)
@@ -446,11 +558,9 @@ def course_percentage(session_id, course_id):
                 "total": total_days,
                 "percentage": percentage
             })
-
         result = sorted(result, key=lambda x: roll_batch_sort_key(x.get("roll")))
     finally:
         db.close()
-
     return render_template("admin/course_percentage.html",
         course=course_obj,
         session_id=session_id,
@@ -649,58 +759,107 @@ def send_notifications():
 def upload_students():
     db = SessionLocal()
     try:
-        sessions = db.query(Session).filter(Session.is_active == 1).order_by(Session.name.desc()).all()
+        semesters = SEMESTER_ORDER
 
         if request.method == "POST":
             file = request.files.get("excel_file")
-            session_id = request.form.get("session_id")
+            selected_semester = request.form.get("semester")
 
             if not file or not file.filename.endswith(".xlsx"):
                 flash("শুধু .xlsx ফাইল upload করুন!", "error")
-                return render_template("admin/upload_students.html", sessions=sessions)
+                return render_template("admin/upload_students.html", semesters=semesters)
 
-            if not session_id:
-                flash("কোন Session এর জন্য sheet, সেটা সিলেক্ট করুন!", "error")
-                return render_template("admin/upload_students.html", sessions=sessions)
+            if not selected_semester:
+                flash("কোন Semester এর জন্য sheet, সেটা সিলেক্ট করুন!", "error")
+                return render_template("admin/upload_students.html", semesters=semesters)
 
-            session_obj = db.query(Session).get(session_id)
-            session_name = session_obj.name  # যেমন "2022-23"
+            import pandas as pd
+            import re
 
-            # session নাম দিয়ে আলাদা ফাইলে সেভ
+            semester_slug = re.sub(r"[^a-zA-Z0-9]+", "_", selected_semester.strip().lower()).strip("_")
+
             save_path = os.path.normpath(os.path.join(
                 os.path.dirname(os.path.abspath(__file__)),
-                "..", "..", "database", f"students_{session_name}.xlsx"
+                "..", "..", "database", f"students_semester_{semester_slug}.xlsx"
             ))
             file.save(save_path)
 
-            import pandas as pd
             df = pd.read_excel(save_path)
+            df.columns = df.columns.str.strip().str.lower()
 
-            courses = db.query(Course).filter(Course.session_id == session_id).all()
+            required_cols = {"name", "roll", "session", "semester"}
+            if not required_cols.issubset(set(df.columns)):
+                flash(
+                    f"⚠️ Excel ফাইলে এই কলামগুলো থাকতে হবে: {', '.join(required_cols)}। "
+                    f"পাওয়া গেছে: {', '.join(df.columns)}",
+                    "error"
+                )
+                return redirect(url_for("admin.dashboard"))
+
+            courses = db.query(Course).filter(Course.semester == selected_semester).all()
             course_ids = [c.id for c in courses]
 
+            if not course_ids:
+                flash(
+                    f"'{selected_semester}'-এর জন্য এখনো কোনো course add করা হয়নি। "
+                    f"আগে ওই semester-এ course add করুন, তারপর আবার এই ফাইল upload করুন।",
+                    "error"
+                )
+                return redirect(url_for("admin.dashboard"))
+
             enrolled_count = 0
+            updated_count = 0
             skipped_count = 0
+            mismatched_rows = 0
+            sessions_touched = set()
+            session_cache = {}
 
             for _, row in df.iterrows():
                 roll = str(row.get("roll", "")).strip()
                 name = str(row.get("name", "")).strip()
+                row_session_name = str(row.get("session", "")).strip()
+                row_semester_raw = str(row.get("semester", "")).strip()
 
-                if not roll:
+                if not roll or not row_session_name:
                     continue
+
+                norm_row_semester = normalize_semester(row_semester_raw)
+                norm_selected_semester = normalize_semester(selected_semester)
+                if norm_row_semester != norm_selected_semester:
+                    mismatched_rows += 1
+                    continue
+
+                if row_session_name in session_cache:
+                    session_obj = session_cache[row_session_name]
+                else:
+                    session_obj = db.query(Session).filter(Session.name == row_session_name).first()
+                    if not session_obj:
+                        session_obj = Session(name=row_session_name)
+                        db.add(session_obj)
+                        db.flush()
+                    session_cache[row_session_name] = session_obj
+
+                sessions_touched.add(row_session_name)
 
                 for cid in course_ids:
                     existing = db.query(Enrollment).filter(
                         Enrollment.course_id == cid,
+                        Enrollment.session_id == session_obj.id,
                         Enrollment.user_id == roll
                     ).first()
 
                     if existing:
-                        skipped_count += 1
+                        if existing.name != name:
+                            existing.name = name
+                            existing.roll_number = roll
+                            updated_count += 1
+                        else:
+                            skipped_count += 1
                         continue
 
                     new_enrollment = Enrollment(
                         course_id=cid,
+                        session_id=session_obj.id,
                         user_id=roll,
                         name=name,
                         roll_number=roll
@@ -710,12 +869,20 @@ def upload_students():
 
             db.commit()
 
-            flash(f"'{session_name}' এর Student list update হয়েছে! {enrolled_count} নতুন enrollment হয়েছে, {skipped_count} আগে থেকেই ছিল।", "success")
+            msg = (
+                f"'{selected_semester}' এর Student list update হয়েছে! "
+                f"{len(sessions_touched)} টি session পাওয়া গেছে ({', '.join(sorted(sessions_touched))}). "
+                f"{enrolled_count} নতুন enrollment, {updated_count} নাম আপডেট হয়েছে, {skipped_count} অপরিবর্তিত ছিল।"
+            )
+            if mismatched_rows:
+                msg += f" ⚠️ {mismatched_rows} টি row-এর semester সিলেক্ট করা semester-এর সাথে মেলেনি, সেগুলো বাদ দেওয়া হয়েছে।"
+
+            flash(msg, "success")
             return redirect(url_for("admin.dashboard"))
 
     finally:
         db.close()
-    return render_template("admin/upload_students.html", sessions=sessions)
+    return render_template("admin/upload_students.html", semesters=semesters)
 
 @admin_bp.route("/change-password", methods=["GET", "POST"])
 @login_required
@@ -769,7 +936,7 @@ def manual_attendance():
     role = request.form.get("role")
     identifier = request.form.get("identifier", "").strip()
     status = request.form.get("status", "On Time")
-    custom_date = request.form.get("date")
+    custom_date = request.form.get("update_date")  # ফর্মের input name অনুযায়ী ঠিক করা হলো (আগে ভুলে "date" লেখা ছিল)
     course_id = request.form.get("course_id", type=int)
     session_id = request.form.get("session_id", type=int)
     if not custom_date:

@@ -23,10 +23,18 @@ load_dotenv()
 BASE_URL = os.getenv("SERVER_BASE_URL", "https://face-recognition-attendance-system-yuhz.onrender.com")
 SERVER_URL = f"{BASE_URL}/api/mark-attendance"
 POLL_URL = f"{BASE_URL}/api/camera-command"
-CAMERA_CODE = None  # শুরুতে জিজ্ঞেস করা হবে
 
-active_course_id = None
-active_session_id = None
+# ==========================================
+# Room Camera Config — ক্যামেরা কেনার পর এখানে IP বসাও
+# ==========================================
+# RTSP username/password ও IP প্রতিটা ক্যামেরার জন্য আলাদা হতে পারে।
+# ফরম্যাট: "rtsp://username:password@ip:554/stream1"
+ROOM_CAMERA_URLS = {
+    "804": 0,
+    "805": "rtsp://admin:password@192.168.0.102:554/stream1",
+    "806": "rtsp://admin:password@192.168.0.103:554/stream1",
+    "807": "rtsp://admin:password@192.168.0.104:554/stream1",
+}
 
 # ==========================================
 # Shared State (Thread-safe)
@@ -34,6 +42,10 @@ active_session_id = None
 already_marked = set()
 already_printed = set()
 marked_lock = threading.Lock()
+
+# প্রতিটা room-এর নিজস্ব active course state
+room_states = {}          # { "804": {"course_id": None, "session_id": None, "course_code": None}, ... }
+room_states_lock = threading.Lock()
 
 # ==========================================
 # Encoding Load
@@ -65,10 +77,6 @@ print("[OK] Anti-spoof model লোড হয়েছে।")
 # Anti-Spoof Function (Deep Learning Model)
 # ==========================================
 def _get_crop_box(src_w, src_h, bbox, scale):
-    """
-    bbox: (x, y, w, h) — face box (top-left corner + width/height)
-    scale: কত গুণ বড় area crop করতে হবে (এই model এর জন্য 2.7)
-    """
     x, y, box_w, box_h = bbox
     scale = min((src_h - 1) / box_h, min((src_w - 1) / box_w, scale))
 
@@ -99,14 +107,7 @@ def _get_crop_box(src_w, src_h, bbox, scale):
 
 
 def is_real_face(face_img, full_frame=None, face_box_xywh=None):
-    """
-    face_img: fallback হিসেবে ব্যবহার হবে যদি full_frame/box দেওয়া না থাকে
-    full_frame + face_box_xywh (x, y, w, h) দিলে সবচেয়ে ভালো accuracy পাওয়া যাবে,
-    কারণ model-টা face এর চারপাশে extra context (2.7x area) দেখে ট্রেইন হয়েছে।
-
-    Returns: True if real face, False if spoof
-    """
-    return True 
+    return True
     try:
         if full_frame is not None and face_box_xywh is not None:
             src_h, src_w = full_frame.shape[:2]
@@ -118,31 +119,21 @@ def is_real_face(face_img, full_frame=None, face_box_xywh=None):
         if cropped is None or cropped.size == 0:
             return True
 
-        
-        cv2.imwrite("debug_crop.jpg", cropped)
-        print(f"[DEBUG] cropped shape={cropped.shape}, box={face_box_xywh}")
-
         resized = cv2.resize(cropped, (80, 80))
         resized = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
 
-        # Model 0-1 range float32 চায়, BGR order ঠিক রেখে (cv2 default)
         input_tensor = resized.astype(np.float32) / 255.0
-        input_tensor = np.transpose(input_tensor, (2, 0, 1))  # HWC -> CHW
-        input_tensor = np.expand_dims(input_tensor, axis=0)   # add batch dim
+        input_tensor = np.transpose(input_tensor, (2, 0, 1))
+        input_tensor = np.expand_dims(input_tensor, axis=0)
 
         outputs = antispoof_session.run(None, {antispoof_input_name: input_tensor})
         logits = outputs[0][0]
 
-        # Softmax
         exp_logits = np.exp(logits - np.max(logits))
         probs = exp_logits / exp_logits.sum()
 
         label_idx = int(np.argmax(probs))
-        print(f"[DEBUG] probs={probs}  label_idx={label_idx}")
-
-        # Index 1 = Real (model convention অনুযায়ী)
         is_real = (label_idx == 1)
-
         return is_real
     except Exception as e:
         print(f"[WARNING] Anti-spoof check failed: {e}")
@@ -196,16 +187,24 @@ def sync_offline():
             os.remove(OFFLINE_FILE)
         print("[INFO] সব অফলাইন ডেটা আপলোড হয়েছে!\n")
 
-# Attendance Marking
-def mark_attendance(name, role):
-    if active_course_id is None:
+# ==========================================
+# Attendance Marking (room-aware)
+# ==========================================
+def mark_attendance(name, role, room_code):
+    with room_states_lock:
+        state = room_states.get(room_code, {})
+        course_id = state.get("course_id")
+        session_id = state.get("session_id")
+
+    if course_id is None:
         return "Waiting for Course"
+
     payload = {
         "name": name,
         "role": role.rstrip("s"),
         "semester": CURRENT_SEMESTER,
-        "course_id": active_course_id,
-        "session_id": active_session_id
+        "course_id": course_id,
+        "session_id": session_id
     }
     try:
         response = requests.post(SERVER_URL, json=payload, timeout=10)
@@ -225,41 +224,60 @@ def mark_attendance(name, role):
         save_offline(payload)
         return "Saved Offline"
 
-def poll_camera_command():
-    global active_course_id, active_session_id
+# ==========================================
+# Camera Command Polling (per room)
+# ==========================================
+def poll_camera_command(room_code):
     while True:
         try:
-            res = requests.get(f"{POLL_URL}/{CAMERA_CODE}", timeout=5)
+            res = requests.get(f"{POLL_URL}/{room_code}", timeout=5)
             if res.status_code == 200:
                 data = res.json()
                 if data.get("status") == "success":
                     new_course = data.get("course_id")
-                    if new_course != active_course_id:
-                        active_course_id = new_course
-                        active_session_id = data.get("session_id")
-                        print(f"\n[COMMAND] নতুন Course activate হলো: {data.get('course_code')} (course_id={active_course_id})\n")
+                    with room_states_lock:
+                        current = room_states[room_code]["course_id"]
+                        if new_course != current:
+                            room_states[room_code]["course_id"] = new_course
+                            room_states[room_code]["session_id"] = data.get("session_id")
+                            room_states[room_code]["course_code"] = data.get("course_code")
+
+                            if new_course is None:
+                                print(f"\n[COMMAND][Room {room_code}] Attendance বন্ধ করা হলো, Waiting for Course...\n")
+                                with marked_lock:
+                                    already_marked.clear()
+                                    already_printed.clear()
+                            else:
+                                print(f"\n[COMMAND][Room {room_code}] নতুন Course activate হলো: {data.get('course_code')} (course_id={new_course})\n")
         except requests.exceptions.RequestException:
             pass
         time.sleep(5)
 
 # ==========================================
-# Camera Thread
+# Camera Thread (room-aware, resilient)
 # ==========================================
-def camera_thread(camera_source, camera_name, window_name):
+def camera_thread(camera_source, camera_name, window_name, room_code):
     print(f"[INFO] {camera_name} চালু হচ্ছে...")
     cap = cv2.VideoCapture(camera_source)
 
     if not cap.isOpened():
-        print(f"[ERROR] {camera_name} খুলতে পারেনি!")
+        print(f"[ERROR] {camera_name} খুলতে পারেনি! এই ক্যামেরাটা স্কিপ করা হলো, বাকি ক্যামেরাগুলো চলতে থাকবে।")
         return
 
     print(f"[OK] {camera_name} চালু হয়েছে।")
 
+    fail_count = 0
     while True:
         ret, frame = cap.read()
         if not ret:
-            print(f"[ERROR] {camera_name} থেকে frame পাওয়া যাচ্ছে না!")
-            break
+            fail_count += 1
+            print(f"[WARNING] {camera_name} থেকে frame পাওয়া যাচ্ছে না! (fail={fail_count})")
+            if fail_count >= 10:
+                print(f"[ERROR] {camera_name} বারবার fail করছে, এই thread বন্ধ করা হলো।")
+                break
+            time.sleep(1)
+            continue
+        fail_count = 0
 
         small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
         rgb_small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
@@ -272,8 +290,6 @@ def camera_thread(camera_source, camera_name, window_name):
         face_statuses = []
 
         for face_encoding, face_location in zip(face_encodings, face_locations):
-
-            # Anti-Spoof Check
             top, right, bottom, left = [x * 4 for x in face_location]
             face_img = frame[top:bottom, left:right]
             box_xywh = (left, top, right - left, bottom - top)
@@ -286,7 +302,6 @@ def camera_thread(camera_source, camera_name, window_name):
                 print(f"[ALERT] {camera_name}: Spoof attempt detected!")
                 continue
 
-            # Face Recognition
             matches = face_recognition.compare_faces(
                 known_encodings, face_encoding, tolerance=TOLERANCE
             )
@@ -307,7 +322,7 @@ def camera_thread(camera_source, camera_name, window_name):
                 if name in already_marked:
                     status = "Already Marked"
                 elif name != "Unknown":
-                    status = mark_attendance(name, role)
+                    status = mark_attendance(name, role, room_code)
                     if status != "Waiting for Course":
                         already_marked.add(name)
                         if name not in already_printed:
@@ -317,7 +332,6 @@ def camera_thread(camera_source, camera_name, window_name):
             face_roles.append(role)
             face_statuses.append(status)
 
-        # Display
         for (top, right, bottom, left), name, role, status in zip(
                 face_locations, face_names, face_roles, face_statuses):
             top *= 4; right *= 4; bottom *= 4; left *= 4
@@ -344,44 +358,43 @@ def camera_thread(camera_source, camera_name, window_name):
     print(f"[INFO] {camera_name} বন্ধ হয়েছে।")
 
 # ==========================================
-# Camera Setup
+# Setup — Multi-Room Selection
 # ==========================================
 print("=" * 50)
 print("  Face Recognition Attendance System")
 print("=" * 50)
-print("\nকোন camera গুলো use করবেন?")
-print("1. শুধু Laptop Webcam")
-print("2. Laptop + Phone Camera")
-print("3. Laptop + ESP32-CAM")
-print("4. Laptop + Phone + ESP32-CAM (সব)")
-print("5. শুধু Phone Camera")
-print("6. শুধু ESP32-CAM")
+print("\nউপলব্ধ Room camera:")
+room_list = list(ROOM_CAMERA_URLS.keys())
+for idx, room in enumerate(room_list, start=1):
+    print(f"{idx}. Room {room}")
+print(f"{len(room_list) + 1}. Laptop Webcam")
 print("=" * 50)
 
-CAMERA_CODE = input("এই Camera এর Room number (যেমন 804): ").strip()
+selection = input(
+    "\nকোনগুলো চালু করবেন? (নাম্বার কমা দিয়ে দিন, যেমন: 1,2,3,5 — সব চালু করতে 'all' লিখুন): "
+).strip()
 
-polling_thread = threading.Thread(target=poll_camera_command, daemon=True)
-polling_thread.start()
-print(f"[INFO] Camera Command Polling চালু হয়েছে (Room {CAMERA_CODE})। CR থেকে command এর অপেক্ষায়...\n")
+selected_indices = []
+if selection.lower() == "all":
+    selected_indices = list(range(1, len(room_list) + 2))
+else:
+    for part in selection.split(","):
+        part = part.strip()
+        if part.isdigit():
+            selected_indices.append(int(part))
 
-choice = input("আপনার choice (1-6): ").strip()
+cameras = []  # (source, name, window_name, room_code)
 
-cameras = []  # (source, name, window_name)
-
-# Laptop webcam
-if choice in ["1", "2", "3", "4"]:
-    cameras.append((0, "Laptop Webcam", "Laptop Webcam"))
-
-# Phone camera
-if choice in ["2", "4", "5"]:
-    ip = input("Phone এর IP address (যেমন 192.168.1.5): ").strip()
-    port = input("Port (default 8080, Enter চাপুন): ").strip() or "8080"
-    cameras.append((f"http://{ip}:{port}/video", "Phone Camera", "Phone Camera"))
-
-# ESP32-CAM
-if choice in ["3", "4", "6"]:
-    ip = input("ESP32-CAM এর IP address (যেমন 192.168.1.6): ").strip()
-    cameras.append((f"http://{ip}:81/stream", "ESP32-CAM", "ESP32-CAM"))
+for idx in selected_indices:
+    if 1 <= idx <= len(room_list):
+        room_code = room_list[idx - 1]
+        url = ROOM_CAMERA_URLS[room_code]
+        cameras.append((url, f"Room {room_code} Camera", f"Room {room_code}", room_code))
+        room_states[room_code] = {"course_id": None, "session_id": None, "course_code": None}
+    elif idx == len(room_list) + 1:
+        laptop_room_code = "LAPTOP"
+        cameras.append((0, "Laptop Webcam", "Laptop Webcam", laptop_room_code))
+        room_states[laptop_room_code] = {"course_id": None, "session_id": None, "course_code": None}
 
 if not cameras:
     print("[ERROR] কোনো camera select করা হয়নি!")
@@ -391,24 +404,34 @@ print(f"\n[INFO] মোট {len(cameras)} টি camera চালু হবে�
 print("[INFO] বন্ধ করতে যেকোনো window তে 'q' চাপুন।\n")
 
 # ==========================================
+# Start Command Polling Threads (per room)
+# ==========================================
+for room_code in room_states.keys():
+    if room_code == "LAPTOP":
+        continue  # ল্যাপটপের জন্য কোনো CR command room নেই, চাইলে এটাও একটা room code দেওয়া যায়
+    t = threading.Thread(target=poll_camera_command, args=(room_code,), daemon=True)
+    t.start()
+    print(f"[INFO] Camera Command Polling চালু হয়েছে (Room {room_code})। CR থেকে command এর অপেক্ষায়...")
+
+# ==========================================
 # Sync offline data first
 # ==========================================
 sync_offline()
 
 # ==========================================
-# Start Threads
+# Start Camera Threads
 # ==========================================
 threads = []
-for source, name, window in cameras:
+for source, name, window, room_code in cameras:
     t = threading.Thread(
         target=camera_thread,
-        args=(source, name, window),
+        args=(source, name, window, room_code),
         daemon=True
     )
     threads.append(t)
     t.start()
+    time.sleep(1)  # camera-গুলো একসাথে খুলতে গিয়ে conflict এড়ানোর জন্য
 
-# Wait for all threads
 for t in threads:
     t.join()
 

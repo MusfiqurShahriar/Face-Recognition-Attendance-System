@@ -44,6 +44,30 @@ _STUDENT_CACHE_TIME = 0
 _TEACHER_CACHE = None
 _TEACHER_CACHE_TIME = 0
 
+# 8টা fixed semester, ছোট থেকে বড় ক্রমে। Course এখন এই লেবেলের সাথে বাঁধা,
+# কোনো নির্দিষ্ট batch/Session এর সাথে না।
+SEMESTER_ORDER = [
+    "1st Year 1st Semester",
+    "1st Year 2nd Semester",
+    "2nd Year 1st Semester",
+    "2nd Year 2nd Semester",
+    "3rd Year 1st Semester",
+    "3rd Year 2nd Semester",
+    "4th Year 1st Semester",
+    "4th Year 2nd Semester",
+]
+
+
+def normalize_semester(text):
+    """
+    Excel এ কেউ 'Semester' বা ভুলবশত 'Semister' যেভাবেই লিখুক না কেন,
+    দুইটাকেই সমান ধরে match করার জন্য এই normalize function।
+    """
+    if not text:
+        return ""
+    return text.strip().lower().replace("semister", "semester").replace("  ", " ")
+
+
 class Attendance(Base):
     __tablename__ = "attendance"
 
@@ -78,21 +102,22 @@ class Session(Base):
     name = Column(String(20), unique=True, nullable=False)  # e.g. "2022-23"
     is_active = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.now)
-    courses = relationship('Course', backref='session', lazy=True)
+    # নোট: Course আর সরাসরি Session কে reference করে না (Course এখন semester-bound),
+    # তাই এখানে আগের courses backref সরিয়ে ফেলা হলো।
 
 class Course(Base):
     __tablename__ = 'course'
     id = Column(Integer, primary_key=True)
-    session_id = Column(Integer, ForeignKey('session.id'), nullable=False)
+    semester = Column(String(50), nullable=False)  # e.g. "3rd Year 2nd Semester" — SEMESTER_ORDER এর একটা ভ্যালু
     course_code = Column(String(20), nullable=False)
     course_name = Column(String(100), nullable=False)
-    section = Column(String(20))
     created_at = Column(DateTime, default=datetime.now)
 
 class Enrollment(Base):
     __tablename__ = 'enrollment'
     id = Column(Integer, primary_key=True)
     course_id = Column(Integer, ForeignKey('course.id'), nullable=False)
+    session_id = Column(Integer, ForeignKey('session.id'), nullable=False)  # কোন batch এর enrollment, তা track করার জন্য
     user_id = Column(String(50), nullable=False)
     name = Column(String(100))
     roll_number = Column(String(50))
@@ -142,6 +167,17 @@ def get_cr_by_email(email):
     finally:
         db.close()
 
+def clean_roll(value):
+    """
+    pandas মাঝেমধ্যে Excel এর roll number কলামকে float হিসেবে পড়ে ফেলে
+    (কোনো ফাঁকা/NaN সেল থাকলে), ফলে '230508' এর বদলে '230508.0' হয়ে যেতে পারে।
+    এই helper সবসময় trailing '.0' সরিয়ে roll কে clean string বানায়।
+    """
+    s = str(value).strip()
+    if s.endswith(".0"):
+        s = s[:-2]
+    return s
+
 def load_students_from_excel():
     global _STUDENT_CACHE, _STUDENT_CACHE_TIME
 
@@ -176,7 +212,7 @@ def load_students_from_excel():
             session_col = None
 
         for _, row in df.iterrows():
-            roll = str(row.get("roll", "")).strip()
+            roll = clean_roll(row.get("roll", ""))
             if not roll or roll in seen_rolls:
                 continue
 
@@ -255,6 +291,24 @@ def get_teacher_by_name(name):
         if t["name"].lower() == name.lower():
             return t
     return None
+
+def get_batch_semester_map():
+    """
+    Excel এর সব student data থেকে normalized-semester -> batch(session name) ম্যাপ বানায়।
+    এটা dashboard() এবং semester_courses() দুই জায়গাতেই দরকার, তাই এখানে একবার লেখা হলো
+    যাতে দুই জায়গায় একই logic duplicate না হয়।
+
+    রিটার্ন করে: { normalized_semester_label: batch_name }
+    """
+    students = load_students_from_excel()
+    normalized_semester_to_batch = {}
+    for s in students:
+        raw_sem = (s.get("semester") or "").strip()
+        batch = (s.get("section") or "").strip()
+        norm_sem = normalize_semester(raw_sem)
+        if norm_sem and batch and norm_sem not in normalized_semester_to_batch:
+            normalized_semester_to_batch[norm_sem] = batch
+    return normalized_semester_to_batch
 
 def get_admin_from_env():
     return {

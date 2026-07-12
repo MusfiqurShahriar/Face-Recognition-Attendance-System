@@ -1,36 +1,48 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>📚 Running Sessions</h2>
+<h2>📚 Semesters</h2>
 <p class="page-sub" style="margin-bottom: 20px; color: var(--text-muted);">
-        যেকোনো Session-এ ক্লিক করে সেই সেশনের কোর্সসমূহ দেখুন
+        যেকোনো Semester-এ ক্লিক করে সেই semester-এর কোর্সসমূহ দেখুন / যোগ করুন
 </p>
 
+<div
+        style="background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:20px; max-width:420px; margin-bottom:24px;">
+        <h3 style="margin-bottom:14px;">➕ Add New Session (Batch)</h3>
+        <form method="POST" action="{{ url_for('admin.add_session') }}" style="display:flex; gap:10px;">
+                <input type="text" name="session_name" placeholder="Ex: 2025-26" required
+                        style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:8px 12px; color:var(--text-primary); flex:1;">
+                <button type="submit" class="btn-primary" style="padding:8px 18px;">Add</button>
+        </form>
+</div>
+
 <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:16px;">
-        {% for s in sessions %}
-        <div class="session-card"
-                onclick="window.location.href='{{ url_for('admin.session_courses', session_id=s.id) }}'">
+        {% for c in semester_cards %}
+        <div class="session-card {% if not c.session %}session-card-empty{% endif %}"
+                onclick="window.location.href='{{ url_for('admin.semester_courses', semester_index=c.semester_index) }}'">
                 <div style="display:flex; align-items:center; justify-content:space-between;">
                         <div style="display:flex; align-items:center; gap:14px;">
-                                <div class="session-icon">🎓</div>
+                                <div class="session-icon {% if not c.session %}session-icon-empty{% endif %}">🎓</div>
                                 <div>
-                                        <div style="font-size:1.3rem; font-weight:700; color:var(--text-primary);">{{
-                                                s.name }}</div>
-                                        <div style="font-size:0.85rem; color:var(--text-muted); margin-top:2px;">সেশন
-                                                দেখতে ক্লিক করুন</div>
+                                        <div
+                                                style="font-size:1.3rem; font-weight:700; color:{% if c.session %}var(--text-primary){% else %}var(--text-muted){% endif %};">
+                                                {{
+                                                c.semester_label }}</div>
+                                        <div style="font-size:0.85rem; color:var(--text-muted); margin-top:2px;">
+                                                {% if c.session %}
+                                                বর্তমান ব্যাচ: {{ c.session.name }} — কোর্স ও attendance দেখতে ক্লিক
+                                                করুন
+                                                {% else %}
+                                                কোনো ব্যাচ নেই — তবে কোর্স আগে থেকেই যোগ করে রাখতে ক্লিক করুন
+                                                {% endif %}
+                                        </div>
                                 </div>
                         </div>
-                        <div style="font-size:1.4rem; color:var(--accent);">→</div>
+                        <div
+                                style="font-size:1.4rem; color:{% if c.session %}var(--accent){% else %}var(--text-muted){% endif %};">
+                                →</div>
                 </div>
         </div>
         {% endfor %}
-        {% if sessions|length == 0 %}
-        <div class="notification-box">
-                <div>
-                        <h3>কোনো সেশন পাওয়া যায়নি</h3>
-                        <p>নতুন সেশন যোগ করতে অ্যাডমিনের সাথে যোগাযোগ করুন</p>
-                </div>
-        </div>
-        {% endif %}
 </div>
 
 <div class="section-divider"></div>
@@ -75,6 +87,11 @@
                 box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
         }
 
+        .session-card-empty {
+                border-left: 4px solid var(--border);
+                opacity: 0.75;
+        }
+
         .session-icon {
                 width: 42px;
                 height: 42px;
@@ -84,6 +101,10 @@
                 background: rgba(99, 102, 241, 0.15);
                 border-radius: 10px;
                 font-size: 1.3rem;
+        }
+
+        .session-icon-empty {
+                background: rgba(148, 148, 148, 0.15);
         }
 
         .teacher-card {

@@ -1,7 +1,6 @@
 from flask import Blueprint, render_template
 from flask_login import login_required, current_user
-from database import SessionLocal, Attendance
-from database import SessionLocal, Attendance, Course, Enrollment
+from database import SessionLocal, Attendance, Course, Enrollment, Session
 
 student_bp = Blueprint("student", __name__, url_prefix="/student")
 
@@ -34,15 +33,31 @@ def course_dashboard(course_id):
     try:
         course_obj = db.query(Course).get(course_id)
 
-        records = db.query(Attendance).filter(
+        # student এর নিজের batch বের করা হচ্ছে (current_user.section এ আসলে batch/session name থাকে,
+        # যেমন "2022-23" — এটা load_students_from_excel() এর "section" key থেকে আসে)
+        student_session_id = None
+        if current_user.section:
+            student_session_obj = db.query(Session).filter(Session.name == current_user.section).first()
+            if student_session_obj:
+                student_session_id = student_session_obj.id
+
+        records_query = db.query(Attendance).filter(
             Attendance.user_id == current_user.id,
             Attendance.course_id == course_id
-        ).order_by(Attendance.date).all()
-
-        total_days = db.query(Attendance.date).filter(
+        )
+        total_days_query = db.query(Attendance.date).filter(
             Attendance.role == "student",
             Attendance.course_id == course_id
-        ).distinct().count()
+        )
+
+        # student এর batch খুঁজে পাওয়া গেলে, সেই batch এর মধ্যেই আটকে রাখা হচ্ছে
+        # (নাহলে ভবিষ্যতে এই course অন্য batch শেয়ার করলে percentage ভুল হিসাব হবে)
+        if student_session_id is not None:
+            records_query = records_query.filter(Attendance.session_id == student_session_id)
+            total_days_query = total_days_query.filter(Attendance.session_id == student_session_id)
+
+        records = records_query.order_by(Attendance.date).all()
+        total_days = total_days_query.distinct().count()
 
         present_count = len(records)
         percentage = round((present_count / total_days * 100), 1) if total_days > 0 else 0

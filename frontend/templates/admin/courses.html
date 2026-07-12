@@ -1,27 +1,40 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>📖 {{ session.name }} —List of Courses</h2>
 <div class="tabs-container" style="margin-bottom: 15px;">
-    <a href="{{ url_for('admin.dashboard') }}" class="back-link">← All Sessions</a>
+    <a href="{{ url_for('admin.dashboard') }}" class="back-link">← All Semesters</a>
 </div>
+
+<div style="display:flex; align-items:center; gap:12px; margin-bottom:10px; flex-wrap:wrap;">
+    <span
+        style="background:var(--accent); color:#fff; padding:6px 16px; border-radius:20px; font-weight:700; font-size:1rem;">
+        📖 Semester: {{ semester_label }}
+    </span>
+    <h2 style="margin:0;">List of Courses</h2>
+</div>
+
+{% if session %}
+<p style="color:var(--text-muted); margin-bottom:20px;">
+    ✅ বর্তমান ব্যাচ: <strong>{{ session.name }}</strong> — নিচে "Enter" চেপে attendance dashboard-এ যাওয়া যাবে
+</p>
+{% else %}
+<p style="color:var(--text-muted); margin-bottom:20px;">
+    ℹ️ এই semester-এ এখন কোনো active ব্যাচ নেই। কোর্স যোগ/এডিট করে রাখতে পারেন, ব্যাচ আসলে automatically এখানেই visible
+    হবে।
+</p>
+{% endif %}
 
 <div
     style="background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:20px; max-width:500px; margin-bottom:24px;">
-    <h3 style="margin-bottom:14px;">➕ Add New Courses</h3>
-    <form method="POST" action="{{ url_for('admin.add_course', session_id=session.id) }}">
+    <h3 style="margin-bottom:14px;">➕ Add New Course</h3>
+    <form method="POST" action="{{ url_for('admin.add_course', semester_index=semester_index) }}">
         <div style="margin-bottom:10px;">
             <label>Course Code:</label>
             <input type="text" name="course_code" placeholder="Ex: EECE-1111" required
                 style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:8px 12px; color:var(--text-primary); width:100%;">
         </div>
-        <div style="margin-bottom:10px;">
+        <div style="margin-bottom:14px;">
             <label>Course Name:</label>
             <input type="text" name="course_name" placeholder="Ex: Electrical Circuits I" required
-                style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:8px 12px; color:var(--text-primary); width:100%;">
-        </div>
-        <div style="margin-bottom:14px;">
-            <label>Section (Optional):</label>
-            <input type="text" name="section" placeholder="Ex: 2022-23"
                 style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:8px 12px; color:var(--text-primary); width:100%;">
         </div>
         <button type="submit" class="btn-primary" style="width:100%; padding:10px;">Add Course</button>
@@ -34,7 +47,6 @@
             <tr>
                 <th>Course Code</th>
                 <th class="text-left">Course Name</th>
-                <th>Section</th>
                 <th>Action</th>
             </tr>
         </thead>
@@ -43,12 +55,14 @@
             <tr>
                 <td>{{ c.course_code }}</td>
                 <td class="text-left">{{ c.course_name }}</td>
-                <td>{{ c.section or "—" }}</td>
                 <td style="display:flex; gap:6px; justify-content:center;">
-                    <a href="{{ url_for('admin.course_dashboard', session_id=session.id, course_id=c.id) }}" class="btn-primary"
+                    {% if session %}
+                    <a href="{{ url_for('admin.course_dashboard', session_id=session.id, course_id=c.id) }}"
+                        class="btn-primary"
                         style="padding:5px 10px; border-radius:6px; text-decoration:none; font-size:0.85rem;">
                         Enter →
                     </a>
+                    {% endif %}
                     <button type="button" class="btn-primary"
                         style="padding:5px 10px; border-radius:6px; font-size:0.85rem; background:#d59322; border-color:#d59322;"
                         onclick="document.getElementById('edit-form-{{ c.id }}').style.display = document.getElementById('edit-form-{{ c.id }}').style.display === 'none' ? 'flex' : 'none';">
@@ -65,24 +79,23 @@
                 </td>
             </tr>
             <tr id="edit-form-{{ c.id }}" style="display:none;">
-                <td colspan="4" style="background:var(--bg-primary); padding:14px;">
+                <td colspan="3" style="background:var(--bg-primary); padding:14px;">
                     <form method="POST" action="{{ url_for('admin.edit_course', course_id=c.id) }}"
                         style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
                         <input type="text" name="course_code" value="{{ c.course_code }}" required
                             style="background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:6px 10px; color:var(--text-primary); width:150px;">
                         <input type="text" name="course_name" value="{{ c.course_name }}" required
                             style="background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:6px 10px; color:var(--text-primary); width:280px;">
-                        <input type="text" name="section" value="{{ c.section or '' }}"
-                            style="background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:6px 10px; color:var(--text-primary); width:100px;">
-                        <button type="submit" class="btn-primary" style="padding:6px 14px; border-radius:6px;">Save</button>
+                        <button type="submit" class="btn-primary"
+                            style="padding:6px 14px; border-radius:6px;">Save</button>
                     </form>
                 </td>
             </tr>
             {% endfor %}
             {% if courses|length == 0 %}
             <tr>
-                <td colspan="4" style="text-align:center; color:var(--text-muted); padding: 20px;">
-                    এই সেশনে কোনো কোর্স যোগ করা হয়নি
+                <td colspan="3" style="text-align:center; color:var(--text-muted); padding: 20px;">
+                    এই semester-এ কোনো কোর্স যোগ করা হয়নি
                 </td>
             </tr>
             {% endif %}

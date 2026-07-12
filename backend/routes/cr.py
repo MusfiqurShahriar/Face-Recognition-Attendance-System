@@ -1,8 +1,12 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file
 from flask_login import login_required, current_user
-from database import SessionLocal, Camera, Course, CameraCommand, Attendance, Enrollment
+from database import (
+    SessionLocal, Camera, Course, CameraCommand, Attendance, Enrollment,
+    Session, get_batch_semester_map, normalize_semester
+)
 from functools import wraps
 from datetime import datetime
+from routes.admin import roll_batch_sort_key
 
 cr_bp = Blueprint("cr", __name__, url_prefix="/cr")
 def cr_required(f):
@@ -13,6 +17,23 @@ def cr_required(f):
             return redirect(url_for("auth.login"))
         return f(*args, **kwargs)
     return decorated
+
+
+def get_current_cr_semester(db):
+    """
+    CR এর batch (current_user.session_id) এই মুহূর্তে কোন semester এ আছে,
+    সেটা Excel data থেকে বের করে। কোনো ম্যাচ না পেলে None রিটার্ন করে।
+    """
+    cr_session = db.query(Session).get(current_user.session_id)
+    if not cr_session:
+        return None
+
+    normalized_semester_to_batch = get_batch_semester_map()
+    for norm_sem, batch_name in normalized_semester_to_batch.items():
+        if batch_name == cr_session.name:
+            return norm_sem  # already normalized, Course.semester এর সাথে মেলাতে normalize করেই কম্পেয়ার করবো
+    return None
+
 
 @cr_bp.route("/dashboard", methods=["GET", "POST"])
 @login_required
@@ -35,7 +56,6 @@ def dashboard():
                 )
                 db.add(new_command)
 
-                # Camera এর current course persist করো (restart-proof)
                 camera_obj = db.query(Camera).get(camera_id)
                 if camera_obj:
                     camera_obj.current_course_id = course_id
@@ -44,15 +64,60 @@ def dashboard():
                 db.commit()
                 flash("Camera command পাঠানো হয়েছে!", "success")
 
-        # POST/GET উভয় ক্ষেত্রেই শেষে fresh query করা হচ্ছে
         cameras = db.query(Camera).order_by(Camera.camera_code).all()
-        courses = db.query(Course).filter(
-            Course.session_id == current_user.session_id
-        ).order_by(Course.course_code).all()
+
+        # CR এর batch এখন কোন semester এ আছে সেটা বের করে, সেই semester এর course গুলো দেখানো হচ্ছে
+        norm_sem = get_current_cr_semester(db)
+        if norm_sem:
+            all_courses = db.query(Course).order_by(Course.course_code).all()
+            courses = [c for c in all_courses if normalize_semester(c.semester) == norm_sem]
+        else:
+            courses = []
+            flash("আপনার batch এর জন্য কোনো current semester খুঁজে পাওয়া যায়নি (Excel data চেক করুন)।", "error")
 
     finally:
         db.close()
     return render_template("cr/dashboard.html", cameras=cameras, courses=courses)
+
+
+@cr_bp.route("/stop-camera", methods=["POST"])
+@login_required
+@cr_required
+def stop_camera():
+    db = SessionLocal()
+    try:
+        camera_id = request.form.get("camera_id")
+        if not camera_id:
+            flash("Camera সিলেক্ট করুন!", "error")
+            return redirect(url_for("cr.dashboard"))
+
+        camera_obj = db.query(Camera).get(camera_id)
+        if not camera_obj:
+            flash("Camera পাওয়া যায়নি।", "error")
+            return redirect(url_for("cr.dashboard"))
+
+        # নিরাপত্তা: শুধু যেই CR এই camera চালু করেছে, সে-ই বন্ধ করতে পারবে
+        if camera_obj.current_session_id != current_user.session_id:
+            flash("এই camera আপনার session চালু করেনি, তাই আপনি এটা বন্ধ করতে পারবেন না।", "error")
+            return redirect(url_for("cr.dashboard"))
+
+        stop_command = CameraCommand(
+            camera_id=camera_id,
+            course_id=None,
+            session_id=current_user.session_id,
+            status="pending"
+        )
+        db.add(stop_command)
+
+        camera_obj.current_course_id = None
+        camera_obj.current_session_id = None
+
+        db.commit()
+        flash("Camera বন্ধ করার command পাঠানো হয়েছে!", "success")
+    finally:
+        db.close()
+    return redirect(url_for("cr.dashboard"))
+
 
 @cr_bp.route("/course/<int:course_id>/report")
 @login_required
@@ -62,12 +127,14 @@ def course_report(course_id):
     try:
         course_obj = db.query(Course).get(course_id)
 
-        # নিরাপত্তা: CR শুধু তার নিজের session-এর course-ই দেখতে পারবে
-        if not course_obj or course_obj.session_id != current_user.session_id:
-            flash("এই কোর্সটি আপনার session-এর অন্তর্গত নয়।", "error")
+        norm_sem = get_current_cr_semester(db)
+        if not course_obj or not norm_sem or normalize_semester(course_obj.semester) != norm_sem:
+            flash("এই কোর্সটি আপনার semester-এর অন্তর্গত নয়।", "error")
             return redirect(url_for("cr.dashboard"))
 
-        enrolled = db.query(Enrollment).filter(Enrollment.course_id == course_id).all()
+        enrolled = db.query(Enrollment).filter(
+            Enrollment.course_id == course_id
+        ).all()
 
         all_dates = db.query(Attendance.date).filter(
             Attendance.role == "student",
@@ -89,10 +156,11 @@ def course_report(course_id):
                 "total": total_days,
                 "percentage": percentage
             })
-        report = sorted(report, key=lambda x: x["roll"] or "")
+        report = sorted(report, key=lambda x: roll_batch_sort_key(x["roll"]))
     finally:
         db.close()
     return render_template("cr/course_report.html", course=course_obj, report=report, total_days=total_days)
+
 
 @cr_bp.route("/course/<int:course_id>/export")
 @login_required
@@ -106,10 +174,15 @@ def course_export(course_id):
     db = SessionLocal()
     try:
         course_obj = db.query(Course).get(course_id)
-        if not course_obj or course_obj.session_id != current_user.session_id:
-            flash("এই কোর্সটি আপনার session-এর অন্তর্গত নয়।", "error")
+
+        norm_sem = get_current_cr_semester(db)
+        if not course_obj or not norm_sem or normalize_semester(course_obj.semester) != norm_sem:
+            flash("এই কোর্সটি আপনার semester-এর অন্তর্গত নয়।", "error")
             return redirect(url_for("cr.dashboard"))
-        enrolled = db.query(Enrollment).filter(Enrollment.course_id == course_id).all()
+
+        enrolled = db.query(Enrollment).filter(
+            Enrollment.course_id == course_id
+        ).all()
 
         all_dates = db.query(Attendance.date).filter(
             Attendance.role == "student",
@@ -131,7 +204,7 @@ def course_export(course_id):
                 "total": total_days,
                 "percentage": percentage
             })
-        report = sorted(report, key=lambda x: x["roll"] or "")
+        report = sorted(report, key=lambda x: roll_batch_sort_key(x["roll"]))
 
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
