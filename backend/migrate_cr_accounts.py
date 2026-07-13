@@ -1,5 +1,4 @@
-from database import engine, Base, SessionLocal, Session, CRAccount
-
+from database import engine, Base, SessionLocal, Session, CRAccount, generate_cr_credentials
 def migrate():
     # ধাপ ১: cr_account টেবিল তৈরি
     Base.metadata.create_all(engine)
@@ -12,8 +11,7 @@ def migrate():
             if existing:
                 print(f"আগে থেকেই CR আছে: {s.name}")
                 continue
-            email = f"cr.{s.name}@dept.local"
-            password = f"cr{s.name.replace('-', '')}"  # যেমন: cr202223
+            email, password = generate_cr_credentials(s.name)  # যেমন: cr202223
             new_cr = CRAccount(
                 session_id=s.id,
                 name=f"CR - {s.name}",

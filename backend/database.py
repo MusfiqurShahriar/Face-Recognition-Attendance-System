@@ -150,6 +150,17 @@ class CRAccount(Base):
     login_password = Column(String(100), nullable=False)
     created_at = Column(DateTime, default=datetime.now)
 
+def generate_cr_credentials(session_name):
+    """
+    Session name থেকে CR-এর email ও password বানায়।
+    Department code .env থেকে আসে, hardcode করা নেই — 
+    অন্য department-এ deploy করলে শুধু .env-এ DEPT_CODE বদলালেই হবে।
+    """
+    dept_code = os.getenv("DEPT_CODE", "dept")
+    email = f"cr.{session_name}@{dept_code}.com"
+    password = f"cr{session_name.replace('-', '')}"
+    return email, password
+
 def get_cr_by_email(email):
     db = SessionLocal()
     try:

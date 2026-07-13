@@ -39,8 +39,8 @@ ROOM_CAMERA_URLS = {
 # ==========================================
 # Shared State (Thread-safe)
 # ==========================================
-already_marked = set()
-already_printed = set()
+already_marked = {}   # { room_code: set(rolls/names already marked) }
+already_printed = {}  # { room_code: set(...) }
 marked_lock = threading.Lock()
 
 # প্রতিটা room-এর নিজস্ব active course state
@@ -228,12 +228,22 @@ def mark_attendance(name, role, room_code):
 # Camera Command Polling (per room)
 # ==========================================
 def poll_camera_command(room_code):
+    first_poll_done = False
     while True:
         try:
             res = requests.get(f"{POLL_URL}/{room_code}", timeout=5)
             if res.status_code == 200:
                 data = res.json()
                 if data.get("status") == "success":
+
+                    # প্রথম poll-টা সবসময় ignore করা হবে — script শুরু হলে
+                    # camera যেন সবসময় "Waiting for Course" থেকে শুরু হয়,
+                    # DB-তে পুরনো persisted course_id থাকলেও তা ধরা হবে না।
+                    if not first_poll_done:
+                        first_poll_done = True
+                        time.sleep(5)
+                        continue
+
                     new_course = data.get("course_id")
                     with room_states_lock:
                         current = room_states[room_code]["course_id"]
@@ -245,8 +255,8 @@ def poll_camera_command(room_code):
                             if new_course is None:
                                 print(f"\n[COMMAND][Room {room_code}] Attendance বন্ধ করা হলো, Waiting for Course...\n")
                                 with marked_lock:
-                                    already_marked.clear()
-                                    already_printed.clear()
+                                    already_marked[room_code] = set()
+                                    already_printed[room_code] = set()
                             else:
                                 print(f"\n[COMMAND][Room {room_code}] নতুন Course activate হলো: {data.get('course_code')} (course_id={new_course})\n")
         except requests.exceptions.RequestException:
@@ -259,7 +269,11 @@ def poll_camera_command(room_code):
 def camera_thread(camera_source, camera_name, window_name, room_code):
     print(f"[INFO] {camera_name} চালু হচ্ছে...")
     cap = cv2.VideoCapture(camera_source)
-
+    with marked_lock:
+        if room_code not in already_marked:
+            already_marked[room_code] = set()
+        if room_code not in already_printed:
+            already_printed[room_code] = set()
     if not cap.isOpened():
         print(f"[ERROR] {camera_name} খুলতে পারেনি! এই ক্যামেরাটা স্কিপ করা হলো, বাকি ক্যামেরাগুলো চলতে থাকবে।")
         return
@@ -319,15 +333,15 @@ def camera_thread(camera_source, camera_name, window_name, room_code):
             status = ""
 
             with marked_lock:
-                if name in already_marked:
+                if name in already_marked[room_code]:
                     status = "Already Marked"
                 elif name != "Unknown":
                     status = mark_attendance(name, role, room_code)
                     if status != "Waiting for Course":
-                        already_marked.add(name)
-                        if name not in already_printed:
+                        already_marked[room_code].add(name)
+                        if name not in already_printed[room_code]:
                             print(f"[{camera_name}] {name} | {status}")
-                            already_printed.add(name)
+                            already_printed[room_code].add(name)
             face_names.append(name)
             face_roles.append(role)
             face_statuses.append(status)

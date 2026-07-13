@@ -4,7 +4,7 @@ from database import SessionLocal, Attendance, load_students_from_excel, load_te
 from sqlalchemy import func
 from datetime import datetime
 from database import SEMESTER_ORDER, normalize_semester, get_batch_semester_map
-from database import Session, Course, Enrollment, CameraCommand
+from database import Session, Course, Enrollment, CameraCommand, CRAccount, generate_cr_credentials
 import pandas as pd
 import io
 import os
@@ -837,6 +837,21 @@ def upload_students():
                         session_obj = Session(name=row_session_name)
                         db.add(session_obj)
                         db.flush()
+
+                        # নতুন session-এর জন্য অটোমেটিক CR account তৈরি
+                        existing_cr = db.query(CRAccount).filter(
+                            CRAccount.session_id == session_obj.id
+                        ).first()
+                        if not existing_cr:
+                            cr_email, cr_password = generate_cr_credentials(session_obj.name)
+                            new_cr = CRAccount(
+                                session_id=session_obj.id,
+                                name=f"CR - {session_obj.name}",
+                                login_email=cr_email,
+                                login_password=cr_password
+                            )
+                            db.add(new_cr)
+
                     session_cache[row_session_name] = session_obj
 
                 sessions_touched.add(row_session_name)
