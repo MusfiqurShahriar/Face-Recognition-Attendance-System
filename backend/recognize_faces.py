@@ -8,10 +8,9 @@ from datetime import datetime
 import json
 import os
 import threading
-import onnxruntime as ort
+from collections import deque, defaultdict
 
 ENCODINGS_FILE = "../models/encodings.pkl"
-ANTI_SPOOF_MODEL_PATH = "../models/anti_spoof_model.onnx"
 OFFLINE_FILE = "offline_queue.json"
 
 TOLERANCE = 0.45
@@ -23,12 +22,7 @@ load_dotenv()
 BASE_URL = os.getenv("SERVER_BASE_URL", "https://face-recognition-attendance-system-yuhz.onrender.com")
 SERVER_URL = f"{BASE_URL}/api/mark-attendance"
 POLL_URL = f"{BASE_URL}/api/camera-command"
-
-# ==========================================
-# Room Camera Config — ক্যামেরা কেনার পর এখানে IP বসাও
-# ==========================================
-# RTSP username/password ও IP প্রতিটা ক্যামেরার জন্য আলাদা হতে পারে।
-# ফরম্যাট: "rtsp://username:password@ip:554/stream1"
+#ক্যামেরা কেনার পর এখানে IওP বসা
 ROOM_CAMERA_URLS = {
     "804": 0,
     "805": "rtsp://admin:password@192.168.0.102:554/stream1",
@@ -36,20 +30,15 @@ ROOM_CAMERA_URLS = {
     "807": "rtsp://admin:password@192.168.0.104:554/stream1",
 }
 
-# ==========================================
-# Shared State (Thread-safe)
-# ==========================================
-already_marked = {}   # { room_code: set(rolls/names already marked) }
-already_printed = {}  # { room_code: set(...) }
+# Shared State
+already_marked = {}
+already_printed = {}
 marked_lock = threading.Lock()
 
-# প্রতিটা room-এর নিজস্ব active course state
-room_states = {}          # { "804": {"course_id": None, "session_id": None, "course_code": None}, ... }
+room_states = {}
 room_states_lock = threading.Lock()
 
-# ==========================================
 # Encoding Load
-# ==========================================
 print("[INFO] Encoding লোড হচ্ছে...")
 with open(ENCODINGS_FILE, "rb") as f:
     data = pickle.load(f)
@@ -65,83 +54,119 @@ ROLE_COLORS = {
     "Spoof":    (0, 0, 200)
 }
 
-# ==========================================
-# Anti-Spoof Model Load
-# ==========================================
-print("[INFO] Anti-spoof model লোড হচ্ছে...")
-antispoof_session = ort.InferenceSession(ANTI_SPOOF_MODEL_PATH, providers=["CPUExecutionProvider"])
-antispoof_input_name = antispoof_session.get_inputs()[0].name
-print("[OK] Anti-spoof model লোড হয়েছে।")
+# Blur Detection (Laplacian Variance)
+BLUR_VARIANCE_THRESHOLD = 60.0
 
-# ==========================================
-# Anti-Spoof Function (Deep Learning Model)
-# ==========================================
-def _get_crop_box(src_w, src_h, bbox, scale):
-    x, y, box_w, box_h = bbox
-    scale = min((src_h - 1) / box_h, min((src_w - 1) / box_w, scale))
+def _is_face_sharp_enough(face_crop_bgr):
+    if face_crop_bgr is None or face_crop_bgr.size == 0:
+        return False
+    gray = cv2.cvtColor(face_crop_bgr, cv2.COLOR_BGR2GRAY)
+    variance = cv2.Laplacian(gray, cv2.CV_64F).var()
+    return variance >= BLUR_VARIANCE_THRESHOLD
 
-    new_width = box_w * scale
-    new_height = box_h * scale
-    center_x = box_w / 2 + x
-    center_y = box_h / 2 + y
+# Blink-based Liveness Detection 
+EAR_CONSEC_FRAMES = 1     
+EAR_MAX_LOW_FRAMES = 6         
+EAR_SMOOTHING_WINDOW = 3      
+LIVENESS_TIMEOUT_SECONDS = 6   
 
-    left = center_x - new_width / 2
-    top = center_y - new_height / 2
-    right = center_x + new_width / 2
-    bottom = center_y + new_height / 2
+liveness_state = defaultdict(lambda: {
+    "ear_history": deque(maxlen=EAR_SMOOTHING_WINDOW),
+    "consec_low": 0,
+    "blinked": False,
+    "first_seen": time.time(),
+    "last_seen": time.time(),
+    "landmark_fail_count": 0,
+})
+liveness_lock = threading.Lock()
 
-    if left < 0:
-        right -= left
-        left = 0
-    if top < 0:
-        bottom -= top
-        top = 0
-    if right > src_w - 1:
-        left -= (right - src_w + 1)
-        right = src_w - 1
-    if bottom > src_h - 1:
-        top -= (bottom - src_h + 1)
-        bottom = src_h - 1
+def _eye_aspect_ratio(eye_points):
+    p = [np.array(pt) for pt in eye_points]
+    A = np.linalg.norm(p[1] - p[5])
+    B = np.linalg.norm(p[2] - p[4])
+    C = np.linalg.norm(p[0] - p[3])
+    return (A + B) / (2.0 * C) if C != 0 else 0.0
 
-    return int(left), int(top), int(right), int(bottom)
+def _get_landmarks_robust(rgb_frame, face_location_full_res):
 
+    top, right, bottom, left = face_location_full_res
+    h, w = rgb_frame.shape[:2]
 
-def is_real_face(face_img, full_frame=None, face_box_xywh=None):
-    return True
+    pad_y = int((bottom - top) * 0.25)
+    pad_x = int((right - left) * 0.25)
+
+    crop_top = max(0, top - pad_y)
+    crop_left = max(0, left - pad_x)
+    crop_bottom = min(h, bottom + pad_y)
+    crop_right = min(w, right + pad_x)
+
+    crop = rgb_frame[crop_top:crop_bottom, crop_left:crop_right]
+    if crop.size == 0:
+        return []
+
+    rel_top = top - crop_top
+    rel_left = left - crop_left
+    rel_bottom = rel_top + (bottom - top)
+    rel_right = rel_left + (right - left)
+
     try:
-        if full_frame is not None and face_box_xywh is not None:
-            src_h, src_w = full_frame.shape[:2]
-            left, top, right, bottom = _get_crop_box(src_w, src_h, face_box_xywh, scale=2.7)
-            cropped = full_frame[top:bottom + 1, left:right + 1]
+        landmarks_list = face_recognition.face_landmarks(
+            crop, face_locations=[(rel_top, rel_right, rel_bottom, rel_left)]
+        )
+    except Exception:
+        landmarks_list = []
+
+    return landmarks_list
+
+def _update_liveness(name, rgb_frame, bgr_face_crop, face_location_full_res):
+
+    if not _is_face_sharp_enough(bgr_face_crop):
+        return False, "Image too blurry, hold steady"
+
+    landmarks_list = _get_landmarks_robust(rgb_frame, face_location_full_res)
+
+    with liveness_lock:
+        state = liveness_state[name]
+        now = time.time()
+        state["last_seen"] = now
+
+        if not state["blinked"] and (now - state["first_seen"]) > LIVENESS_TIMEOUT_SECONDS:
+            state["first_seen"] = now
+            state["consec_low"] = 0
+            state["ear_history"].clear()
+
+        if state["blinked"]:
+            return True, "Verified (Live)"
+
+        if not landmarks_list or "left_eye" not in landmarks_list[0]:
+            state["landmark_fail_count"] += 1
+            return False, "Verifying liveness..."
+
+        state["landmark_fail_count"] = 0
+        landmarks = landmarks_list[0]
+        raw_ear = (_eye_aspect_ratio(landmarks["left_eye"]) + _eye_aspect_ratio(landmarks["right_eye"])) / 2.0
+
+        state["ear_history"].append(raw_ear)
+        smoothed_ear = float(np.median(state["ear_history"]))
+
+        if smoothed_ear < EAR_THRESHOLD:
+            state["consec_low"] += 1
+            if state["consec_low"] > EAR_MAX_LOW_FRAMES:
+                state["consec_low"] = EAR_MAX_LOW_FRAMES + 1
         else:
-            cropped = face_img
+            if EAR_CONSEC_FRAMES <= state["consec_low"] <= EAR_MAX_LOW_FRAMES:
+                state["blinked"] = True
+                return True, "Verified (Live)"
+            state["consec_low"] = 0
 
-        if cropped is None or cropped.size == 0:
-            return True
+        return False, "Verifying liveness..."
 
-        resized = cv2.resize(cropped, (80, 80))
-        resized = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
+def _cleanup_stale_liveness():
+    with liveness_lock:
+        for n in [n for n, s in liveness_state.items() if time.time() - s["last_seen"] > 30]:
+            del liveness_state[n]
 
-        input_tensor = resized.astype(np.float32) / 255.0
-        input_tensor = np.transpose(input_tensor, (2, 0, 1))
-        input_tensor = np.expand_dims(input_tensor, axis=0)
-
-        outputs = antispoof_session.run(None, {antispoof_input_name: input_tensor})
-        logits = outputs[0][0]
-
-        exp_logits = np.exp(logits - np.max(logits))
-        probs = exp_logits / exp_logits.sum()
-
-        label_idx = int(np.argmax(probs))
-        is_real = (label_idx == 1)
-        return is_real
-    except Exception as e:
-        print(f"[WARNING] Anti-spoof check failed: {e}")
-        return True
-
-# ==========================================
 # Offline Sync Functions
-# ==========================================
 def save_offline(payload):
     queue = []
     if os.path.exists(OFFLINE_FILE):
@@ -187,9 +212,7 @@ def sync_offline():
             os.remove(OFFLINE_FILE)
         print("[INFO] সব অফলাইন ডেটা আপলোড হয়েছে!\n")
 
-# ==========================================
 # Attendance Marking (room-aware)
-# ==========================================
 def mark_attendance(name, role, room_code):
     with room_states_lock:
         state = room_states.get(room_code, {})
@@ -224,9 +247,7 @@ def mark_attendance(name, role, room_code):
         save_offline(payload)
         return "Saved Offline"
 
-# ==========================================
 # Camera Command Polling (per room)
-# ==========================================
 def poll_camera_command(room_code):
     first_poll_done = False
     while True:
@@ -235,15 +256,10 @@ def poll_camera_command(room_code):
             if res.status_code == 200:
                 data = res.json()
                 if data.get("status") == "success":
-
-                    # প্রথম poll-টা সবসময় ignore করা হবে — script শুরু হলে
-                    # camera যেন সবসময় "Waiting for Course" থেকে শুরু হয়,
-                    # DB-তে পুরনো persisted course_id থাকলেও তা ধরা হবে না।
                     if not first_poll_done:
                         first_poll_done = True
                         time.sleep(5)
                         continue
-
                     new_course = data.get("course_id")
                     with room_states_lock:
                         current = room_states[room_code]["course_id"]
@@ -251,7 +267,6 @@ def poll_camera_command(room_code):
                             room_states[room_code]["course_id"] = new_course
                             room_states[room_code]["session_id"] = data.get("session_id")
                             room_states[room_code]["course_code"] = data.get("course_code")
-
                             if new_course is None:
                                 print(f"\n[COMMAND][Room {room_code}] Attendance বন্ধ করা হলো, Waiting for Course...\n")
                                 with marked_lock:
@@ -263,9 +278,7 @@ def poll_camera_command(room_code):
             pass
         time.sleep(5)
 
-# ==========================================
 # Camera Thread (room-aware, resilient)
-# ==========================================
 def camera_thread(camera_source, camera_name, window_name, room_code):
     print(f"[INFO] {camera_name} চালু হচ্ছে...")
     cap = cv2.VideoCapture(camera_source)
@@ -283,6 +296,7 @@ def camera_thread(camera_source, camera_name, window_name, room_code):
     fail_count = 0
     while True:
         ret, frame = cap.read()
+        _cleanup_stale_liveness()
         if not ret:
             fail_count += 1
             print(f"[WARNING] {camera_name} থেকে frame পাওয়া যাচ্ছে না! (fail={fail_count})")
@@ -305,23 +319,11 @@ def camera_thread(camera_source, camera_name, window_name, room_code):
 
         for face_encoding, face_location in zip(face_encodings, face_locations):
             top, right, bottom, left = [x * 4 for x in face_location]
-            face_img = frame[top:bottom, left:right]
-            box_xywh = (left, top, right - left, bottom - top)
-            real = is_real_face(face_img, full_frame=frame, face_box_xywh=box_xywh)
+            bgr_face_crop = frame[top:bottom, left:right]
 
-            if not real:
-                face_names.append("Spoof!")
-                face_roles.append("Spoof")
-                face_statuses.append("⚠️ FAKE")
-                print(f"[ALERT] {camera_name}: Spoof attempt detected!")
-                continue
-
-            matches = face_recognition.compare_faces(
-                known_encodings, face_encoding, tolerance=TOLERANCE
-            )
+            matches = face_recognition.compare_faces(known_encodings, face_encoding, tolerance=TOLERANCE)
             name = "Unknown"
             role = "Unknown"
-
             face_distances = face_recognition.face_distance(known_encodings, face_encoding)
 
             if len(face_distances) > 0:
@@ -332,16 +334,21 @@ def camera_thread(camera_source, camera_name, window_name, room_code):
 
             status = ""
 
-            with marked_lock:
-                if name in already_marked[room_code]:
-                    status = "Already Marked"
-                elif name != "Unknown":
-                    status = mark_attendance(name, role, room_code)
-                    if status != "Waiting for Course":
-                        already_marked[room_code].add(name)
-                        if name not in already_printed[room_code]:
-                            print(f"[{camera_name}] {name} | {status}")
-                            already_printed[room_code].add(name)
+            if name != "Unknown":
+                rgb_full_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                is_live, liveness_status = _update_liveness(name, rgb_full_frame, bgr_face_crop, (top, right, bottom, left))
+                with marked_lock:
+                    if name in already_marked[room_code]:
+                        status = "Already Marked"
+                    elif not is_live:
+                        status = liveness_status
+                    else:
+                        status = mark_attendance(name, role, room_code)
+                        if status != "Waiting for Course":
+                            already_marked[room_code].add(name)
+                            if name not in already_printed[room_code]:
+                                print(f"[{camera_name}] {name} | {status}")
+                                already_printed[room_code].add(name)
             face_names.append(name)
             face_roles.append(role)
             face_statuses.append(status)
@@ -371,9 +378,7 @@ def camera_thread(camera_source, camera_name, window_name, room_code):
     cv2.destroyWindow(window_name)
     print(f"[INFO] {camera_name} বন্ধ হয়েছে।")
 
-# ==========================================
 # Setup — Multi-Room Selection
-# ==========================================
 print("=" * 50)
 print("  Face Recognition Attendance System")
 print("=" * 50)
@@ -397,7 +402,7 @@ else:
         if part.isdigit():
             selected_indices.append(int(part))
 
-cameras = []  # (source, name, window_name, room_code)
+cameras = []
 
 for idx in selected_indices:
     if 1 <= idx <= len(room_list):
@@ -417,24 +422,18 @@ if not cameras:
 print(f"\n[INFO] মোট {len(cameras)} টি camera চালু হবে।")
 print("[INFO] বন্ধ করতে যেকোনো window তে 'q' চাপুন।\n")
 
-# ==========================================
 # Start Command Polling Threads (per room)
-# ==========================================
 for room_code in room_states.keys():
     if room_code == "LAPTOP":
-        continue  # ল্যাপটপের জন্য কোনো CR command room নেই, চাইলে এটাও একটা room code দেওয়া যায়
+        continue
     t = threading.Thread(target=poll_camera_command, args=(room_code,), daemon=True)
     t.start()
     print(f"[INFO] Camera Command Polling চালু হয়েছে (Room {room_code})। CR থেকে command এর অপেক্ষায়...")
 
-# ==========================================
 # Sync offline data first
-# ==========================================
 sync_offline()
 
-# ==========================================
 # Start Camera Threads
-# ==========================================
 threads = []
 for source, name, window, room_code in cameras:
     t = threading.Thread(
@@ -444,7 +443,7 @@ for source, name, window, room_code in cameras:
     )
     threads.append(t)
     t.start()
-    time.sleep(1)  # camera-গুলো একসাথে খুলতে গিয়ে conflict এড়ানোর জন্য
+    time.sleep(1)
 
 for t in threads:
     t.join()
