@@ -31,7 +31,7 @@ def get_current_cr_semester(db):
     normalized_semester_to_batch = get_batch_semester_map()
     for norm_sem, batch_name in normalized_semester_to_batch.items():
         if batch_name == cr_session.name:
-            return norm_sem  # already normalized, Course.semester এর সাথে মেলাতে normalize করেই কম্পেয়ার করবো
+            return norm_sem 
     return None
 
 
@@ -66,7 +66,6 @@ def dashboard():
 
         cameras = db.query(Camera).order_by(Camera.camera_code).all()
 
-        # CR এর batch এখন কোন semester এ আছে সেটা বের করে, সেই semester এর course গুলো দেখানো হচ্ছে
         norm_sem = get_current_cr_semester(db)
         if norm_sem:
             all_courses = db.query(Course).order_by(Course.course_code).all()
@@ -96,7 +95,6 @@ def stop_camera():
             flash("Camera পাওয়া যায়নি।", "error")
             return redirect(url_for("cr.dashboard"))
 
-        # নিরাপত্তা: শুধু যেই CR এই camera চালু করেছে, সে-ই বন্ধ করতে পারবে
         if camera_obj.current_session_id != current_user.session_id:
             flash("এই camera আপনার session চালু করেনি, তাই আপনি এটা বন্ধ করতে পারবেন না।", "error")
             return redirect(url_for("cr.dashboard"))

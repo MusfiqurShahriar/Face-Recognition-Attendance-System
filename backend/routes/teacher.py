@@ -19,7 +19,6 @@ def dashboard():
 
     total_classes = len(records)
 
-    # এই মাসের attendance
     from datetime import datetime
     current_month = datetime.now().strftime("%Y-%m")
     monthly_records = [r for r in records if r.date.startswith(current_month)]

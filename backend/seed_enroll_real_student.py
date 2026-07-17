@@ -12,8 +12,8 @@ def seed():
             print("এই student আগে থেকেই enrolled আছে।")
         else:
             enrollment = Enrollment(
-                course_id=1,          # আগের seed script এ বানানো CSE101 কোর্স
-                user_id="230508",     # current_user.id এর সাথে মিলতে হবে
+                course_id=1,      
+                user_id="230508",    
                 name="Test Student 230508",
                 roll_number="230508"
             )

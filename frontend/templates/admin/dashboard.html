@@ -55,11 +55,6 @@
         <input type="date" name="update_date" value="{{ today }}" required
             style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 280px; outline: none;">
 
-        <!--
-            BUG FIX: আগে datalist-এর option value ছিল student.name,
-            কিন্তু placeholder এবং backend দুইটাই roll number আশা করে।
-            এখন value = student.roll করা হয়েছে, label-এ নাম দেখানো হচ্ছে।
-        -->
         <input type="text" name="identifier" id="target_input" list="student_list"
             placeholder="Student Roll লিখুন বা 'All' সিলেক্ট করুন" required
             style="background:var(--bg-primary); border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text-primary); width: 280px;">

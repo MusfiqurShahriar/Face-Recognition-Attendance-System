@@ -73,7 +73,6 @@
 <script>
     const ctx = document.getElementById('studentAttendanceChart').getContext('2d');
 
-    // ব্যাকএন্ড থেকে ডেটা নেওয়ার জন্য
         const onTime = Number("{{ on_time }}") || 0;
         const late = Number("{{ late }}") || 0;
         const absent = (Number("{{ total_days }}") || 0) - (Number("{{ present_count }}") || 0);
@@ -85,9 +84,9 @@
             datasets: [{
                 data: [onTime, late, absent],
                 backgroundColor: [
-                    'rgba(52, 211, 153, 0.85)', // Success (Green)
-                    'rgba(251, 146, 60, 0.85)', // Warning (Orange)
-                    'rgba(248, 113, 113, 0.85)' // Danger (Red)
+                    'rgba(52, 211, 153, 0.85)', 
+                    'rgba(251, 146, 60, 0.85)',
+                    'rgba(248, 113, 113, 0.85)' 
                 ],
                 borderColor: [
                     '#34d399',

@@ -57,7 +57,6 @@ def add_session():
     db = SessionLocal()
     try:
         name = request.form.get("session_name", "").strip()
- 
         if not name:
             flash("Session Name অবশ্যই দিতে হবে! (যেমন: 2025-26)", "error")
         else:
@@ -87,8 +86,6 @@ def semester_courses(semester_index):
     try:
         courses = db.query(Course).filter(Course.semester == semester_label)\
             .order_by(Course.course_code).all()
-
-        # এই semester এ এই মুহূর্তে কোনো active batch আছে কিনা বের করা হচ্ছে
         normalized_semester_to_batch = get_batch_semester_map()
         batch_name = normalized_semester_to_batch.get(normalize_semester(semester_label))
         session_obj = None
@@ -114,14 +111,11 @@ def add_course(semester_index):
     if semester_index < 0 or semester_index >= len(SEMESTER_ORDER):
         flash("ভুল Semester!", "error")
         return redirect(url_for("admin.dashboard"))
- 
     semester_label = SEMESTER_ORDER[semester_index]
- 
     db = SessionLocal()
     try:
         course_code = request.form.get("course_code", "").strip()
         course_name = request.form.get("course_name", "").strip()
- 
         if not course_code or not course_name:
             flash("Course Code এবং Course Name অবশ্যই দিতে হবে!", "error")
         else:
@@ -129,7 +123,6 @@ def add_course(semester_index):
                 Course.semester == semester_label,
                 Course.course_code == course_code
             ).first()
- 
             if existing:
                 flash("এই Course Code ইতিমধ্যে এই Semester-এ আছে!", "error")
             else:
@@ -155,13 +148,10 @@ def edit_course(course_id):
         if not course:
             flash("Course পাওয়া যায়নি!", "error")
             return redirect(url_for("admin.dashboard"))
- 
         semester_label = course.semester
         semester_index = SEMESTER_ORDER.index(semester_label) if semester_label in SEMESTER_ORDER else 0
- 
         course.course_code = request.form.get("course_code", "").strip()
         course.course_name = request.form.get("course_name", "").strip()
- 
         db.commit()
         flash("Course আপডেট হয়েছে!", "success")
     finally:
@@ -179,13 +169,10 @@ def delete_course(course_id):
         if not course:
             flash("Course পাওয়া যায়নি!", "error")
             return redirect(url_for("admin.dashboard"))
- 
         semester_label = course.semester
         semester_index = SEMESTER_ORDER.index(semester_label) if semester_label in SEMESTER_ORDER else 0
- 
         db.query(Enrollment).filter(Enrollment.course_id == course_id).delete()
         db.query(CameraCommand).filter(CameraCommand.course_id == course_id).delete()
- 
         db.delete(course)
         db.commit()
         flash("Course এবং সংশ্লিষ্ট enrollment মুছে ফেলা হয়েছে!", "success")
@@ -203,7 +190,6 @@ def unassigned_attendance():
         if request.method == "POST":
             course_id = request.form.get("course_id")
             selected_dates = request.form.getlist("dates")
- 
             if not course_id or not selected_dates:
                 flash("Course এবং অন্তত একটি তারিখ সিলেক্ট করুন!", "error")
             else:
@@ -213,13 +199,10 @@ def unassigned_attendance():
                 ).update({Attendance.course_id: course_id}, synchronize_session=False)
                 db.commit()
                 flash(f"{updated} টি রেকর্ড সফলভাবে assign করা হয়েছে!", "success")
- 
         orphan_dates = db.query(
             Attendance.date, func.count(Attendance.id)
         ).filter(Attendance.course_id.is_(None)).group_by(Attendance.date).order_by(Attendance.date.desc()).all()
- 
         all_courses_raw = db.query(Course).order_by(Course.course_code).all()
-        # semester এর ক্রম (SEMESTER_ORDER) অনুযায়ী sort করা হচ্ছে, যেহেতু এখন session_id নেই Course এ
         all_courses = sorted(
             all_courses_raw,
             key=lambda c: (
@@ -398,14 +381,11 @@ def normalize_semester(text):
     if not text:
         return ""
     return text.strip().lower().replace("semister", "semester").replace("  ", " ")
- 
- 
-# সঠিক (display-এর জন্য ব্যবহৃত) label -> normalized key ম্যাপ, একবারই তৈরি করা হচ্ছে
+
 _NORMALIZED_SEMESTER_ORDER = [
     (idx, label, normalize_semester(label)) for idx, label in enumerate(SEMESTER_ORDER)
 ]
- 
- 
+
 @admin_bp.route("/dashboard")
 @login_required
 @admin_required
@@ -413,18 +393,14 @@ def dashboard():
     db = SessionLocal()
     try:
         normalized_semester_to_batch = get_batch_semester_map()
- 
         all_sessions = db.query(Session).filter(Session.is_active == 1).all()
         session_by_name = {s.name: s for s in all_sessions}
- 
         semester_cards = []
         empty_semesters = []
- 
         for idx, sem_label in enumerate(SEMESTER_ORDER):
             norm_label = normalize_semester(sem_label)
             batch_name = normalized_semester_to_batch.get(norm_label)
             session_obj = session_by_name.get(batch_name) if batch_name else None
- 
             card = {
                 "order": idx,
                 "semester_index": idx,
@@ -435,14 +411,11 @@ def dashboard():
                 semester_cards.append(card)
             else:
                 empty_semesters.append(card)
- 
         semester_cards.sort(key=lambda c: c["order"])
         empty_semesters.sort(key=lambda c: c["order"])
         ordered_cards = semester_cards + empty_semesters
- 
     finally:
         db.close()
- 
     return render_template("admin/sessions.html", semester_cards=ordered_cards)
 
 @admin_bp.route("/teachers/attendance")
@@ -829,8 +802,7 @@ def upload_students():
                         session_obj = Session(name=row_session_name)
                         db.add(session_obj)
                         db.flush()
-
-                        # নতুন session-এর জন্য অটোমেটিক CR account তৈরি
+# নতুন session-এর জন্য অটোমেটিক CR account তৈরি
                         existing_cr = db.query(CRAccount).filter(
                             CRAccount.session_id == session_obj.id
                         ).first()

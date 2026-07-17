@@ -4,7 +4,6 @@
 <p class="page-sub" style="margin-bottom: 20px; color: var(--text-muted);">
         যেকোনো Semester-এ ক্লিক করে সেই semester-এর কোর্সসমূহ দেখুন / যোগ করুন
 </p>
-
 <div
         style="background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:20px; max-width:420px; margin-bottom:24px;">
         <h3  style="margin-top:0; margin-bottom:14px;">➕ Add New Session (Batch)</h3>
@@ -14,7 +13,6 @@
                 <button type="submit" class="btn-primary" style="padding:8px 18px;">Add</button>
         </form>
 </div>
-
 <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:16px;">
         {% for c in semester_cards %}
         <div class="session-card {% if not c.session %}session-card-empty{% endif %}"
@@ -44,14 +42,11 @@
         </div>
         {% endfor %}
 </div>
-
 <div class="section-divider"></div>
-
 <h2>🧑‍🏫 Teachers</h2>
 <p class="page-sub" style="margin-bottom: 20px; color: var(--text-muted);">
         শিক্ষকদের উপস্থিতি দেখতে নিচের কার্ডে ক্লিক করুন
 </p>
-
 <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:16px;">
         <div class="session-card teacher-card"
                 onclick="window.location.href='{{ url_for('admin.teacher_attendance') }}'">
@@ -69,7 +64,6 @@
                 </div>
         </div>
 </div>
-
 <style>
         .session-card {
                 background: var(--bg-card);
@@ -80,18 +74,15 @@
                 cursor: pointer;
                 transition: all 0.2s ease;
         }
-
         .session-card:hover {
                 transform: translateX(4px);
                 background: var(--bg-primary);
                 box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
         }
-
         .session-card-empty {
                 border-left: 4px solid var(--border);
                 opacity: 0.75;
         }
-
         .session-icon {
                 width: 42px;
                 height: 42px;
@@ -102,19 +93,15 @@
                 border-radius: 10px;
                 font-size: 1.3rem;
         }
-
         .session-icon-empty {
                 background: rgba(148, 148, 148, 0.15);
         }
-
         .teacher-card {
                 border-left: 4px solid #8b5cf6;
         }
-
         .teacher-icon {
                 background: rgba(139, 92, 246, 0.15);
         }
-
         .section-divider {
                 border-top: 1px solid var(--border);
                 margin: 36px 0 28px;

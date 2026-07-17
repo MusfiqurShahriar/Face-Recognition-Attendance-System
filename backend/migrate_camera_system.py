@@ -1,10 +1,8 @@
 from database import engine, Base, SessionLocal, Camera
 
 def migrate():
-    # ধাপ ১: নতুন টেবিল (camera, camera_command) তৈরি
     Base.metadata.create_all(engine)
     print("নতুন টেবিল (camera, camera_command) তৈরি হয়েছে।")
-    # ধাপ ২: ৪টা camera seed করা
     db = SessionLocal()
     try:
         camera_rooms = ["804", "805", "806", "807"]

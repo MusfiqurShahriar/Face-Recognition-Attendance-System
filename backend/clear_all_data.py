@@ -1,18 +1,3 @@
-"""
-এই স্ক্রিপ্টটা backend ফোল্ডারের ভেতরে রেখে চালাতে হবে
-(database.py যেখানে আছে সেই একই লেভেলে বা সেখান থেকে import করা যায় এমন জায়গায়)
-
-চালানোর নিয়ম (PowerShell থেকে, venv activate করা অবস্থায়):
-    python clear_all_data.py
-
-এটা কী করে:
-- .env থেকে DATABASE_URL পড়ে (আপনার ক্ষেত্রে এটা Neon/Postgres হওয়ার কথা)
-- Base.metadata তে যত টেবিল আছে, সবগুলো থেকে row delete করে
-- Foreign key নির্ভরতা অনুযায়ী সঠিক ক্রমে delete করে (আগে child, পরে parent) যাতে
-  FK constraint violation না হয়
-- Table structure/schema অক্ষত থাকে, শুধু data মুছে যায়
-"""
-
 from database import Base, engine, SessionLocal
 
 def clear_all_data():
@@ -27,9 +12,6 @@ def clear_all_data():
         if confirm.strip().lower() != "yes":
             print("[CANCELLED] কিছু মুছা হয়নি।")
             return
-
-        # metadata.sorted_tables দেয় parent-first ক্রম (FK নির্ভরতা অনুযায়ী)
-        # তাই delete করার সময় সেটা reverse করে child-first করা হচ্ছে
         tables_in_delete_order = list(reversed(Base.metadata.sorted_tables))
 
         for table in tables_in_delete_order:

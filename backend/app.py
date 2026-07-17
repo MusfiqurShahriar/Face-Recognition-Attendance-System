@@ -90,10 +90,6 @@ def api_mark_attendance():
     else:
         return jsonify({"status": "error", "message": "Failed to mark attendance"})
 
-# ==========================================
-# এই route টা তোমার আগের /api/camera-command/<camera_code> এর জায়গায়
-# REPLACE করো (শুধু is_enabled চেক যোগ হয়েছে, বাকি logic same)
-# ==========================================
 @app.route("/api/camera-command/<camera_code>", methods=["GET"])
 def get_camera_command(camera_code):
     from database import SessionLocal, Camera, CameraCommand, Course
@@ -104,7 +100,6 @@ def get_camera_command(camera_code):
         if not camera:
             return {"status": "error", "message": "Camera পাওয়া যায়নি"}, 404
 
-        # >>> নতুন: admin dashboard থেকে এই camera বন্ধ করা থাকলে কোনো command দেওয়া হবে না
         if not camera.is_enabled:
             return {"status": "disabled"}, 200
 
@@ -136,10 +131,6 @@ def get_camera_command(camera_code):
     finally:
         db.close()
 
-
-# ==========================================
-# নতুন: Camera heartbeat (edge client নিয়মিত call করবে, "Active/Offline" বোঝার জন্য)
-# ==========================================
 @app.route("/api/camera-heartbeat/<camera_code>", methods=["POST"])
 def camera_heartbeat(camera_code):
     from database import update_camera_heartbeat
@@ -148,10 +139,6 @@ def camera_heartbeat(camera_code):
         return {"status": "error", "message": "Camera পাওয়া যায়নি"}, 404
     return {"status": "success"}, 200
 
-
-# ==========================================
-# নতুন: Camera On/Off/All-On/All-Off (admin dashboard থেকে call হবে)
-# ==========================================
 @app.route("/api/camera-control/<camera_code>/on", methods=["POST"])
 def camera_turn_on(camera_code):
     from flask_login import current_user
@@ -162,7 +149,6 @@ def camera_turn_on(camera_code):
     if not ok:
         return {"status": "error", "message": "Camera পাওয়া যায়নি"}, 404
     return {"status": "success"}, 200
-
 
 @app.route("/api/camera-control/<camera_code>/off", methods=["POST"])
 def camera_turn_off(camera_code):
@@ -175,7 +161,6 @@ def camera_turn_off(camera_code):
         return {"status": "error", "message": "Camera পাওয়া যায়নি"}, 404
     return {"status": "success"}, 200
 
-
 @app.route("/api/camera-control/all/on", methods=["POST"])
 def camera_turn_on_all():
     from flask_login import current_user
@@ -184,7 +169,6 @@ def camera_turn_on_all():
     from database import set_all_cameras_enabled
     set_all_cameras_enabled(True)
     return {"status": "success"}, 200
-
 
 @app.route("/api/camera-control/all/off", methods=["POST"])
 def camera_turn_off_all():
@@ -195,10 +179,6 @@ def camera_turn_off_all():
     set_all_cameras_enabled(False)
     return {"status": "success"}, 200
 
-
-# ==========================================
-# নতুন: সব camera-র live status (page-এ পাশাপাশি দেখানোর জন্য, JS দিয়ে poll হবে)
-# ==========================================
 @app.route("/api/camera-status", methods=["GET"])
 def camera_status():
     from flask_login import current_user
@@ -207,7 +187,6 @@ def camera_status():
     from database import get_all_cameras_with_status
     cameras = get_all_cameras_with_status()
     return {"status": "success", "cameras": cameras}, 200
-
 
 from routes.admin import admin_bp
 from routes.student import student_bp

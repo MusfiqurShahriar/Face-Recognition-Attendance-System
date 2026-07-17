@@ -6,9 +6,7 @@ import os
 import glob
 from dotenv import load_dotenv, find_dotenv
 
-# এটি প্রজেক্টের যেকোনো জায়গা থেকে .env ফাইল খুঁজে নেবে
 load_dotenv(find_dotenv())
-# --- Cloud Database Magic Setup ---
 raw_db_url = os.getenv("DATABASE_URL", "sqlite:///../database/attendance.db")
 print(f"[DEBUG] Connected DB: {raw_db_url[:13]}...")
 
@@ -42,7 +40,6 @@ _STUDENT_CACHE_TIME = 0
 _TEACHER_CACHE = None
 _TEACHER_CACHE_TIME = 0
 
-# ক্যামেরা কতক্ষণ heartbeat না পাঠালে "Offline" ধরা হবে (সেকেন্ড)
 CAMERA_HEARTBEAT_TIMEOUT_SECONDS = 30
 
 SEMESTER_ORDER = [
@@ -308,9 +305,6 @@ def get_admin_from_env():
         "role": "admin"
     }
 
-# ==========================================
-# Camera Control Helpers (নতুন)
-# ==========================================
 def get_all_cameras_with_status():
     """
     Camera Control page-এর জন্য: সব camera-র সাথে desired state (is_enabled)

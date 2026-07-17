@@ -2,10 +2,6 @@ from database import engine
 from sqlalchemy import text
 
 def run_migration():
-    # প্রতিটা ALTER আলাদা connection/transaction এ চালানো হচ্ছে,
-    # যাতে একটা fail করলেও অন্যটা normally চলতে পারে (PostgreSQL এ
-    # একই transaction এ error হলে পরের command ignore হয়ে যায়)।
-
     try:
         with engine.connect() as conn:
             conn.execute(text(

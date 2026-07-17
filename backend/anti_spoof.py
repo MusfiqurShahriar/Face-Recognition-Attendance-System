@@ -20,22 +20,17 @@ def is_real_face(face_img):
     Returns: True if real face, False if spoof
     """
     try:
-        # Simple texture analysis দিয়ে spoof detect করবো
         gray = cv2.cvtColor(face_img, cv2.COLOR_BGR2GRAY)
-        # Laplacian variance — real face এ বেশি, printed photo তে কম
         laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
-        # LBP (Local Binary Pattern) texture analysis
         h, w = gray.shape
         if h < 10 or w < 10:
-            return True  # too small to analyze
-        # Frequency domain analysis
+            return True 
         f_transform = np.fft.fft2(gray)
         f_shift = np.fft.fftshift(f_transform)
         magnitude = 20 * np.log(np.abs(f_shift) + 1)
         freq_mean = np.mean(magnitude)
-        # Real face threshold
         if laplacian_var < 50:
-            return False  # too blurry/flat = likely spoof
+            return False
         return True
     except Exception as e:
         print(f"[WARNING] Anti-spoof check failed: {e}")

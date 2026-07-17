@@ -1,6 +1,5 @@
 from database import engine, Base, SessionLocal, Session, CRAccount, generate_cr_credentials
 def migrate():
-    # ধাপ ১: cr_account টেবিল তৈরি
     Base.metadata.create_all(engine)
     print("cr_account টেবিল তৈরি হয়েছে।")
     db = SessionLocal()

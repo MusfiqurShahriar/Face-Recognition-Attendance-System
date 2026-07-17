@@ -15,9 +15,6 @@ for out in session.get_outputs():
     print(f"  name={out.name}  shape={out.shape}  type={out.type}")
 print("=" * 60)
 
-# একটা সম্পূর্ণ random noise input দিয়ে টেস্ট করা হচ্ছে —
-# যদি এলোমেলো noise-এও একই output (index=2, ~99%) আসে, তাহলে নিশ্চিত হবে
-# model input content ignore করছে (broken graph/wrong node)।
 random_input = np.random.rand(1, 3, 80, 80).astype(np.float32)
 input_name = session.get_inputs()[0].name
 outputs = session.run(None, {input_name: random_input})

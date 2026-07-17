@@ -122,7 +122,6 @@
 </div>
 
 <script>
-    // Base URL for download
     const baseUrl = "{{ url_for('admin.export_excel') }}";
     const dateFrom = "{{ date_from }}";
     const dateTo = "{{ date_to }}";
@@ -153,13 +152,10 @@
         document.getElementById(tabId).classList.add("active");
         document.getElementById(tabId).style.display = "block";
         evt.currentTarget.classList.add("active");
-        // section/semester filter is disabled when Teacher tab is active
         document.getElementById('section-filter').disabled = (type === 'teacher');
         document.getElementById('semester-filter').disabled = (type === 'teacher');
-        // update download link
         updateDownloadLink(type);
     }
-    // Set initial link
     updateDownloadLink('student');
 </script>
 {% endblock %}

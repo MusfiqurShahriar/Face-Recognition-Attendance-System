@@ -50,8 +50,6 @@ def course_dashboard(course_id):
             Attendance.course_id == course_id
         )
 
-        # student এর batch খুঁজে পাওয়া গেলে, সেই batch এর মধ্যেই আটকে রাখা হচ্ছে
-        # (নাহলে ভবিষ্যতে এই course অন্য batch শেয়ার করলে percentage ভুল হিসাব হবে)
         if student_session_id is not None:
             records_query = records_query.filter(Attendance.session_id == student_session_id)
             total_days_query = total_days_query.filter(Attendance.session_id == student_session_id)

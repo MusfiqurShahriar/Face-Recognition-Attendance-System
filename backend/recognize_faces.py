@@ -26,9 +26,7 @@ HEARTBEAT_URL = f"{BASE_URL}/api/camera-heartbeat"
 
 HEARTBEAT_INTERVAL_SECONDS = 20
 
-# ==========================================
-# Room Camera Config — ক্যামেরা কেনার পর এখানে IP বসাও
-# ==========================================
+# Room Camera Config — ক্যামেরার IP 
 ROOM_CAMERA_URLS = {
     "804": 0,
     "805": "rtsp://admin:password@192.168.0.102:554/stream1",
@@ -36,14 +34,10 @@ ROOM_CAMERA_URLS = {
     "807": "rtsp://admin:password@192.168.0.104:554/stream1",
 }
 
-# ==========================================
 # Shared State (Thread-safe)
-# ==========================================
 already_marked = {}
 already_printed = {}
 marked_lock = threading.Lock()
-
-# room_states এখন শুধু course/session info না, camera on/off (enabled) state-ও রাখবে
 room_states = {}
 room_states_lock = threading.Lock()
 
@@ -52,12 +46,10 @@ def _init_room_state(room_code):
         "course_id": None,
         "session_id": None,
         "course_code": None,
-        "enabled": False,   # dashboard থেকে on/off — শুরুতে False, প্রথম poll এ ঠিক হবে
+        "enabled": False,
     }
 
-# ==========================================
 # Encoding Load
-# ==========================================
 print("[INFO] Encoding লোড হচ্ছে...")
 with open(ENCODINGS_FILE, "rb") as f:
     data = pickle.load(f)
@@ -73,9 +65,7 @@ ROLE_COLORS = {
     "Spoof":    (0, 0, 200)
 }
 
-# ==========================================
 # Blur Detection (Laplacian Variance)
-# ==========================================
 BLUR_VARIANCE_THRESHOLD = 60.0
 
 def _is_face_sharp_enough(face_crop_bgr):
@@ -85,14 +75,12 @@ def _is_face_sharp_enough(face_crop_bgr):
     variance = cv2.Laplacian(gray, cv2.CV_64F).var()
     return variance >= BLUR_VARIANCE_THRESHOLD
 
-# ==========================================
 # Blink-based Liveness Detection
-# ==========================================
 EAR_THRESHOLD = 0.21
-EAR_CONSEC_FRAMES = 2
-EAR_MAX_LOW_FRAMES = 8
-EAR_SMOOTHING_WINDOW = 4
-LIVENESS_TIMEOUT_SECONDS = 8
+EAR_CONSEC_FRAMES = 1
+EAR_MAX_LOW_FRAMES = 6
+EAR_SMOOTHING_WINDOW = 3
+LIVENESS_TIMEOUT_SECONDS = 6
 
 liveness_state = defaultdict(lambda: {
     "ear_history": deque(maxlen=EAR_SMOOTHING_WINDOW),
@@ -188,9 +176,7 @@ def _cleanup_stale_liveness():
         for n in [n for n, s in liveness_state.items() if time.time() - s["last_seen"] > 30]:
             del liveness_state[n]
 
-# ==========================================
 # Offline Sync Functions
-# ==========================================
 def save_offline(payload):
     queue = []
     if os.path.exists(OFFLINE_FILE):
@@ -236,9 +222,7 @@ def sync_offline():
             os.remove(OFFLINE_FILE)
         print("[INFO] সব অফলাইন ডেটা আপলোড হয়েছে!\n")
 
-# ==========================================
-# Attendance Marking (room-aware)
-# ==========================================
+# Attendance Marking 
 def mark_attendance(name, role, room_code):
     with room_states_lock:
         state = room_states.get(room_code, {})
@@ -273,9 +257,7 @@ def mark_attendance(name, role, room_code):
         save_offline(payload)
         return "Saved Offline"
 
-# ==========================================
 # Camera Command + On/Off Polling (per room)
-# ==========================================
 def poll_camera_command(room_code):
     """
     প্রতি ৫ সেকেন্ডে একবার সার্ভারকে জিজ্ঞেস করে:
@@ -291,7 +273,6 @@ def poll_camera_command(room_code):
                 status = data.get("status")
 
                 if status == "disabled":
-                    # dashboard থেকে বন্ধ করা আছে
                     with room_states_lock:
                         room_states[room_code]["enabled"] = False
                         room_states[room_code]["course_id"] = None
@@ -299,7 +280,6 @@ def poll_camera_command(room_code):
                     time.sleep(5)
                     continue
 
-                # disabled না, মানে camera-টা enabled আছে dashboard থেকে
                 with room_states_lock:
                     was_enabled = room_states[room_code]["enabled"]
                     room_states[room_code]["enabled"] = True
@@ -327,18 +307,11 @@ def poll_camera_command(room_code):
                                     already_printed[room_code] = set()
                             else:
                                 print(f"\n[COMMAND][Room {room_code}] নতুন Course activate হলো: {data.get('course_code')} (course_id={new_course})\n")
-                # status == "no_command" হলে শুধু enabled=True থেকে যাবে, course_id None-ই থাকবে (Waiting for Course দেখাবে)
         except requests.exceptions.RequestException:
             pass
         time.sleep(5)
 
 def _maybe_send_heartbeat(room_code, last_sent_tracker):
-    """
-    শুধুমাত্র camera আসলে video capture করছে (frame আসছে) তখনই heartbeat পাঠানো
-    হবে — এতে dashboard-এ "Active" মানে সত্যিই সেই camera চলছে, শুধু script
-    চালু আছে এটা না। last_sent_tracker একটা dict, প্রতি room এর শেষ পাঠানোর
-    সময় মনে রাখে যাতে প্রতি frame এ না পাঠিয়ে ইন্টারভাল মেনে চলে।
-    """
     now = time.time()
     last_sent = last_sent_tracker.get(room_code, 0)
     if now - last_sent >= HEARTBEAT_INTERVAL_SECONDS:
@@ -350,9 +323,7 @@ def _maybe_send_heartbeat(room_code, last_sent_tracker):
 
 _heartbeat_last_sent = {}
 
-# ==========================================
 # Camera Thread (room-aware, resilient, on/off controllable)
-# ==========================================
 def camera_thread(camera_source, camera_name, window_name, room_code):
     print(f"[INFO] {camera_name} thread প্রস্তুত। Dashboard থেকে ON করার অপেক্ষায়...")
     with marked_lock:
@@ -368,8 +339,6 @@ def camera_thread(camera_source, camera_name, window_name, room_code):
     while True:
         with room_states_lock:
             is_enabled = room_states[room_code]["enabled"]
-
-        # ==== Camera OFF থাকলে: capture বন্ধ, window বন্ধ, শুধু wait করবে ====
         if not is_enabled:
             if cap is not None:
                 cap.release()
@@ -379,8 +348,6 @@ def camera_thread(camera_source, camera_name, window_name, room_code):
                 window_open = False
             time.sleep(2)
             continue
-
-        # ==== Camera ON, কিন্তু এখনো capture শুরু হয়নি — শুরু করো ====
         if cap is None:
             print(f"[INFO] {camera_name} চালু হচ্ছে...")
             cap = cv2.VideoCapture(camera_source)
@@ -396,7 +363,6 @@ def camera_thread(camera_source, camera_name, window_name, room_code):
         ret, frame = cap.read()
         _cleanup_stale_liveness()
         if ret:
-            # সফলভাবে frame পাওয়া গেছে — মানে camera সত্যিকারভাবে সচল, heartbeat পাঠাও
             _maybe_send_heartbeat(room_code, _heartbeat_last_sent)
         if not ret:
             fail_count += 1
@@ -479,12 +445,9 @@ def camera_thread(camera_source, camera_name, window_name, room_code):
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
         cv2.imshow(window_name, frame)
-        cv2.waitKey(1)  # 'q' দিয়ে বন্ধ করার প্রয়োজন নেই — dashboard থেকেই control হবে
+        cv2.waitKey(1)  # 'q' দিয়ে বন্ধ করার প্রয়োজন নেই
 
-# ==========================================
 # Setup — সব room camera automatically শুরু হবে
-# (কোনো manual input লাগবে না, dashboard থেকে on/off নিয়ন্ত্রিত হবে)
-# ==========================================
 print("=" * 50)
 print("  Face Recognition Attendance System")
 print("  সব Room Camera Client চালু হচ্ছে (Auto Mode)")
@@ -496,24 +459,16 @@ for room_code in ROOM_CAMERA_URLS.keys():
 print(f"[INFO] মোট {len(ROOM_CAMERA_URLS)} টি room camera thread প্রস্তুত হচ্ছে।")
 print("[INFO] প্রতিটা camera admin dashboard থেকে ON করার পরই ভিডিও দেখাবে।\n")
 
-# ==========================================
 # Start Command Polling Threads (per room)
-# Heartbeat আলাদা thread হিসেবে না, camera_thread এর ভিতর থেকেই পাঠানো হয়
-# (শুধু camera সত্যিকারভাবে video capture করলেই heartbeat যাবে)
-# ==========================================
 for room_code in ROOM_CAMERA_URLS.keys():
     t1 = threading.Thread(target=poll_camera_command, args=(room_code,), daemon=True)
     t1.start()
     print(f"[INFO] Room {room_code}: Command Polling চালু হয়েছে।")
 
-# ==========================================
 # Sync offline data first
-# ==========================================
 sync_offline()
 
-# ==========================================
 # Start Camera Threads (সব room automatically)
-# ==========================================
 threads = []
 for room_code, url in ROOM_CAMERA_URLS.items():
     t = threading.Thread(
