@@ -1,5 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
+<div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
+    <span
+        style="background:var(--accent); color:#fff; padding:6px 16px; border-radius:20px; font-weight:700; font-size:1rem;">
+        📖 {{ course.course_code }} — {{ course.course_name }}
+    </span>
+</div>
 <h2>Today's Attendance ({{ today }})</h2>
 <div class="stats-grid">
     <div class="stat-card">

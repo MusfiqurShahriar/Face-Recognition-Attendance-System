@@ -28,6 +28,9 @@
         <a href="{{ url_for('admin.dashboard') }}"
             class="{{ 'nav-active' if request.endpoint == 'admin.dashboard' else '' }}">Dashboard</a>
 
+        <a href="{{ url_for('admin.camera_control') }}"
+            class="{{ 'nav-active' if request.endpoint == 'admin.camera_control' else '' }}">Camera Control</a>
+
         {% if request.endpoint in ['admin.course_dashboard', 'admin.course_percentage', 'admin.course_history'] %}
         <a href="{{ url_for('admin.course_percentage', session_id=request.view_args.session_id, course_id=request.view_args.course_id) }}"
             class="{{ 'nav-active' if request.endpoint == 'admin.course_percentage' else '' }}">Percentage</a>

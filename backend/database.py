@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, create_engine
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, create_engine, Boolean
 from sqlalchemy.orm import relationship, declarative_base, sessionmaker
 from datetime import datetime
 import pandas as pd
@@ -16,8 +16,6 @@ if raw_db_url.startswith("postgres://"):
     DATABASE_URL = raw_db_url.replace("postgres://", "postgresql://", 1)
 else:
     DATABASE_URL = raw_db_url
-# EXCEL_PATH = "../database/students.xlsx"
-# TEACHERS_EXCEL_PATH = "../database/teachers.xlsx"
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EXCEL_PATH = os.path.join(BASE_DIR, "database", "students.xlsx")
 TEACHERS_EXCEL_PATH = os.path.join(BASE_DIR, "database", "teachers.xlsx")
@@ -30,9 +28,9 @@ else:
         DATABASE_URL,
         pool_pre_ping=True,
         pool_recycle=300,
-        pool_size=2,    
-        max_overflow=3,     
-        pool_timeout=30    
+        pool_size=2,
+        max_overflow=3,
+        pool_timeout=30
     )
 
 SessionLocal = sessionmaker(bind=engine)
@@ -44,8 +42,9 @@ _STUDENT_CACHE_TIME = 0
 _TEACHER_CACHE = None
 _TEACHER_CACHE_TIME = 0
 
-# 8টা fixed semester, ছোট থেকে বড় ক্রমে। Course এখন এই লেবেলের সাথে বাঁধা,
-# কোনো নির্দিষ্ট batch/Session এর সাথে না।
+# ক্যামেরা কতক্ষণ heartbeat না পাঠালে "Offline" ধরা হবে (সেকেন্ড)
+CAMERA_HEARTBEAT_TIMEOUT_SECONDS = 30
+
 SEMESTER_ORDER = [
     "1st Year 1st Semester",
     "1st Year 2nd Semester",
@@ -59,10 +58,6 @@ SEMESTER_ORDER = [
 
 
 def normalize_semester(text):
-    """
-    Excel এ কেউ 'Semester' বা ভুলবশত 'Semister' যেভাবেই লিখুক না কেন,
-    দুইটাকেই সমান ধরে match করার জন্য এই normalize function।
-    """
     if not text:
         return ""
     return text.strip().lower().replace("semister", "semester").replace("  ", " ")
@@ -99,16 +94,14 @@ class ClassSession(Base):
 class Session(Base):
     __tablename__ = 'session'
     id = Column(Integer, primary_key=True)
-    name = Column(String(20), unique=True, nullable=False)  # e.g. "2022-23"
+    name = Column(String(20), unique=True, nullable=False)
     is_active = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.now)
-    # নোট: Course আর সরাসরি Session কে reference করে না (Course এখন semester-bound),
-    # তাই এখানে আগের courses backref সরিয়ে ফেলা হলো।
 
 class Course(Base):
     __tablename__ = 'course'
     id = Column(Integer, primary_key=True)
-    semester = Column(String(50), nullable=False)  # e.g. "3rd Year 2nd Semester" — SEMESTER_ORDER এর একটা ভ্যালু
+    semester = Column(String(50), nullable=False)
     course_code = Column(String(20), nullable=False)
     course_name = Column(String(100), nullable=False)
     created_at = Column(DateTime, default=datetime.now)
@@ -117,7 +110,7 @@ class Enrollment(Base):
     __tablename__ = 'enrollment'
     id = Column(Integer, primary_key=True)
     course_id = Column(Integer, ForeignKey('course.id'), nullable=False)
-    session_id = Column(Integer, ForeignKey('session.id'), nullable=False)  # কোন batch এর enrollment, তা track করার জন্য
+    session_id = Column(Integer, ForeignKey('session.id'), nullable=False)
     user_id = Column(String(50), nullable=False)
     name = Column(String(100))
     roll_number = Column(String(50))
@@ -131,6 +124,9 @@ class Camera(Base):
     created_at = Column(DateTime, default=datetime.now)
     current_course_id = Column(Integer, ForeignKey('course.id'), nullable=True)
     current_session_id = Column(Integer, ForeignKey('session.id'), nullable=True)
+    # >>> নতুন যোগ করা কলাম (Camera Control ফিচারের জন্য) <<<
+    is_enabled = Column(Boolean, default=False, nullable=False)   # admin dashboard থেকে চাওয়া desired state
+    last_heartbeat = Column(DateTime, nullable=True)              # camera client শেষ কবে ping করেছে
 
 class CameraCommand(Base):
     __tablename__ = 'camera_command'
@@ -138,7 +134,7 @@ class CameraCommand(Base):
     camera_id = Column(Integer, ForeignKey('camera.id'), nullable=False)
     course_id = Column(Integer, ForeignKey('course.id'), nullable=False)
     session_id = Column(Integer, ForeignKey('session.id'), nullable=False)
-    status = Column(String(20), default="pending")  # pending / acknowledged
+    status = Column(String(20), default="pending")
     created_at = Column(DateTime, default=datetime.now)
 
 class CRAccount(Base):
@@ -151,11 +147,6 @@ class CRAccount(Base):
     created_at = Column(DateTime, default=datetime.now)
 
 def generate_cr_credentials(session_name):
-    """
-    Session name থেকে CR-এর email ও password বানায়।
-    Department code .env থেকে আসে, hardcode করা নেই — 
-    অন্য department-এ deploy করলে শুধু .env-এ DEPT_CODE বদলালেই হবে।
-    """
     dept_code = os.getenv("DEPT_CODE", "dept")
     email = f"cr.{session_name}@{dept_code}.com"
     password = f"cr{session_name.replace('-', '')}"
@@ -179,11 +170,6 @@ def get_cr_by_email(email):
         db.close()
 
 def clean_roll(value):
-    """
-    pandas মাঝেমধ্যে Excel এর roll number কলামকে float হিসেবে পড়ে ফেলে
-    (কোনো ফাঁকা/NaN সেল থাকলে), ফলে '230508' এর বদলে '230508.0' হয়ে যেতে পারে।
-    এই helper সবসময় trailing '.0' সরিয়ে roll কে clean string বানায়।
-    """
     s = str(value).strip()
     if s.endswith(".0"):
         s = s[:-2]
@@ -270,7 +256,7 @@ def load_teachers_from_excel():
             "login_password": str(row["login_password"]).strip(),
             "department": str(row.get("department", "")).strip()
         })
-        
+
     _TEACHER_CACHE = teachers
     _TEACHER_CACHE_TIME = current_mtime
     return teachers
@@ -304,13 +290,6 @@ def get_teacher_by_name(name):
     return None
 
 def get_batch_semester_map():
-    """
-    Excel এর সব student data থেকে normalized-semester -> batch(session name) ম্যাপ বানায়।
-    এটা dashboard() এবং semester_courses() দুই জায়গাতেই দরকার, তাই এখানে একবার লেখা হলো
-    যাতে দুই জায়গায় একই logic duplicate না হয়।
-
-    রিটার্ন করে: { normalized_semester_label: batch_name }
-    """
     students = load_students_from_excel()
     normalized_semester_to_batch = {}
     for s in students:
@@ -328,6 +307,69 @@ def get_admin_from_env():
         "login_password": os.getenv("ADMIN_PASSWORD", "admin123"),
         "role": "admin"
     }
+
+# ==========================================
+# Camera Control Helpers (নতুন)
+# ==========================================
+def get_all_cameras_with_status():
+    """
+    Camera Control page-এর জন্য: সব camera-র সাথে desired state (is_enabled)
+    এবং actual live status (heartbeat অনুযায়ী Active/Inactive/Offline) রিটার্ন করে।
+    """
+    db = SessionLocal()
+    try:
+        cameras = db.query(Camera).order_by(Camera.camera_code).all()
+        result = []
+        now = datetime.now()
+        for cam in cameras:
+            if cam.last_heartbeat is None:
+                live_status = "Never Connected"
+            else:
+                seconds_since = (now - cam.last_heartbeat).total_seconds()
+                live_status = "Active" if seconds_since <= CAMERA_HEARTBEAT_TIMEOUT_SECONDS else "Offline"
+
+            result.append({
+                "camera_code": cam.camera_code,
+                "room_name": cam.room_name,
+                "is_enabled": cam.is_enabled,
+                "live_status": live_status,
+                "last_heartbeat": cam.last_heartbeat.strftime("%Y-%m-%d %H:%M:%S") if cam.last_heartbeat else None,
+            })
+        return result
+    finally:
+        db.close()
+
+def set_camera_enabled(camera_code, enabled: bool):
+    db = SessionLocal()
+    try:
+        cam = db.query(Camera).filter(Camera.camera_code == camera_code).first()
+        if not cam:
+            return False
+        cam.is_enabled = enabled
+        db.commit()
+        return True
+    finally:
+        db.close()
+
+def set_all_cameras_enabled(enabled: bool):
+    db = SessionLocal()
+    try:
+        db.query(Camera).update({Camera.is_enabled: enabled})
+        db.commit()
+    finally:
+        db.close()
+
+def update_camera_heartbeat(camera_code):
+    db = SessionLocal()
+    try:
+        cam = db.query(Camera).filter(Camera.camera_code == camera_code).first()
+        if not cam:
+            return False
+        cam.last_heartbeat = datetime.now()
+        db.commit()
+        return True
+    finally:
+        db.close()
 
 def init_db():
     Base.metadata.create_all(bind=engine)

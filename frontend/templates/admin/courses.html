@@ -9,7 +9,7 @@
         style="background:var(--accent); color:#fff; padding:6px 16px; border-radius:20px; font-weight:700; font-size:1rem;">
         📖 Semester: {{ semester_label }}
     </span>
-    <h2 style="margin:0;">List of Courses</h2>
+
 </div>
 
 {% if session %}
@@ -25,7 +25,7 @@
 
 <div
     style="background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:20px; max-width:500px; margin-bottom:24px;">
-    <h3 style="margin-bottom:14px;">➕ Add New Course</h3>
+    <h3 style="margin-top:0; margin-bottom:14px;">➕ Add New Course</h3>
     <form method="POST" action="{{ url_for('admin.add_course', semester_index=semester_index) }}">
         <div style="margin-bottom:10px;">
             <label>Course Code:</label>
@@ -40,7 +40,14 @@
         <button type="submit" class="btn-primary" style="width:100%; padding:10px;">Add Course</button>
     </form>
 </div>
-
+<div style="display:flex; align-items:center; gap:10px; margin:28px 0 16px;">
+    <div
+        style="width:34px; height:34px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(99,102,241,0.15); border-radius:8px; font-size:1rem;">
+        📋
+    </div>
+    <h2 style="margin:0; font-size:1.3rem;">List of Courses</h2>
+    <div style="flex:1; height:1px; background:var(--border); margin-left:6px;"></div>
+</div>
 <div style="border-left: 4px solid var(--accent); border-radius: 8px; overflow: hidden;">
     <table class="attendance-table" style="margin-top: 0;">
         <thead>

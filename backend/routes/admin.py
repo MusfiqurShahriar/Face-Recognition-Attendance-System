@@ -774,15 +774,7 @@ def upload_students():
                 return render_template("admin/upload_students.html", semesters=semesters)
 
             import pandas as pd
-            import re
-
-            semester_slug = re.sub(r"[^a-zA-Z0-9]+", "_", selected_semester.strip().lower()).strip("_")
-
-            save_path = os.path.normpath(os.path.join(
-                os.path.dirname(os.path.abspath(__file__)),
-                "..", "..", "database", f"students_semester_{semester_slug}.xlsx"
-            ))
-            file.save(save_path)
+            df = pd.read_excel(file)
 
             df = pd.read_excel(save_path)
             df.columns = df.columns.str.strip().str.lower()
@@ -951,7 +943,7 @@ def manual_attendance():
     role = request.form.get("role")
     identifier = request.form.get("identifier", "").strip()
     status = request.form.get("status", "On Time")
-    custom_date = request.form.get("update_date")  # ফর্মের input name অনুযায়ী ঠিক করা হলো (আগে ভুলে "date" লেখা ছিল)
+    custom_date = request.form.get("update_date")
     course_id = request.form.get("course_id", type=int)
     session_id = request.form.get("session_id", type=int)
     if not custom_date:
@@ -962,27 +954,35 @@ def manual_attendance():
 
     try:
         if role == "student" and identifier.lower() == "all":
-            all_students = load_students_from_excel()
+            # course_id দিয়ে filter, session_id দিয়ে না —
+            # কারণ একই course-এ multiple session (batch)-এর student enrolled থাকতে পারে
+            enrolled_students = db.query(Enrollment).filter(
+                Enrollment.course_id == course_id
+            ).all()
+
+            course_obj = db.query(Course).filter(Course.id == course_id).first()
+            course_semester = course_obj.semester if course_obj else ""
+
             count = 0
-            for student in all_students:
+            for enrollment in enrolled_students:
                 exists = db.query(Attendance).filter(
-                    Attendance.name == student["name"],
+                    Attendance.name == enrollment.name,
                     Attendance.date == custom_date,
                     Attendance.course_id == course_id
                 ).first()
                 if not exists:
                     new_record = Attendance(
-                        user_id=student.get("roll", student["name"]),
-                        name=student["name"],
+                        user_id=enrollment.user_id,
+                        name=enrollment.name,
                         role="student",
-                        roll_number=student.get("roll", ""),
-                        section=student.get("section", ""),
+                        roll_number=enrollment.roll_number,
+                        section="",
                         date=custom_date,
                         time=time_str,
                         status=status,
-                        semester=student.get("semester", ""),
+                        semester=course_semester,
                         course_id=course_id,
-                        session_id=session_id
+                        session_id=enrollment.session_id
                     )
                     db.add(new_record)
                     count += 1
@@ -1048,7 +1048,7 @@ def manual_attendance():
         print(f"Error: {e}")
     finally:
         db.close()
-    return redirect(url_for('admin.course_dashboard', session_id=session_id, course_id=course_id))
+    return redirect(url_for('admin.course_dashboard', session_id=session_id, course_id=course_id))    
 
 @admin_bp.route('/update_attendance', methods=['POST'])
 def update_attendance():
@@ -1134,3 +1134,10 @@ def delete_attendance():
         flash("অনুগ্রহ করে একটি তারিখ নির্বাচন করুন।", "danger")
 
     return redirect(url_for('admin.course_dashboard', session_id=session_id, course_id=course_id))
+
+@admin_bp.route("/camera-control")
+@admin_required
+def camera_control():
+    from database import get_all_cameras_with_status
+    cameras = get_all_cameras_with_status()
+    return render_template("admin/camera_control.html", cameras=cameras)

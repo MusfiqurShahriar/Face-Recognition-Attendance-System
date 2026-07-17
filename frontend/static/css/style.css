@@ -636,6 +636,9 @@ h3 {
     color: var(--warning);
     margin-bottom: 0;
 }
+.no-top-margin {
+    margin-top: 0 !important;
+}
 /* Absent list */
 .absent-box {
     background: var(--bg-secondary);

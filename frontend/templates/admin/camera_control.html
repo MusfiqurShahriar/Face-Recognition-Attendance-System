@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+    .cam-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+
+    .cam-header h2 {
+        color: var(--text-primary);
+        margin: 0;
+    }
+
+    .cam-bulk-actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    .btn {
+        padding: 9px 18px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--bg-card);
+        color: var(--text-primary);
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.15s ease;
+    }
+
+    .btn:hover {
+        border-color: var(--accent);
+    }
+
+    .btn-on-all {
+        background: var(--success-bg);
+        border-color: var(--success-border);
+        color: var(--success);
+    }
+
+    .btn-off-all {
+        background: var(--danger-bg);
+        border-color: var(--danger-border);
+        color: var(--danger);
+    }
+
+    .cam-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 16px;
+    }
+
+    .cam-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 18px;
+    }
+
+    .cam-card-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 12px;
+    }
+
+    .cam-room-name {
+        font-size: 17px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0 0 2px 0;
+    }
+
+    .cam-code {
+        font-size: 13px;
+        color: var(--text-muted);
+    }
+
+    .status-badge {
+        font-size: 12px;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 999px;
+        white-space: nowrap;
+    }
+
+    .status-active {
+        background: var(--success-bg);
+        color: var(--success);
+        border: 1px solid var(--success-border);
+    }
+
+    .status-offline {
+        background: var(--danger-bg);
+        color: var(--danger);
+        border: 1px solid var(--danger-border);
+    }
+
+    .status-never {
+        background: var(--warning-bg);
+        color: var(--warning);
+        border: 1px solid var(--warning-border);
+    }
+
+    .cam-heartbeat {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-bottom: 14px;
+    }
+
+    .cam-toggle-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .cam-toggle-label {
+        font-size: 13px;
+        color: var(--text-secondary);
+    }
+
+    /* Toggle Switch */
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 46px;
+        height: 26px;
+    }
+
+    .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: var(--border);
+        transition: 0.2s;
+        border-radius: 999px;
+    }
+
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 20px;
+        width: 20px;
+        left: 3px;
+        bottom: 3px;
+        background-color: var(--bg-secondary);
+        transition: 0.2s;
+        border-radius: 50%;
+    }
+
+    input:checked+.slider {
+        background-color: var(--success);
+    }
+
+    input:checked+.slider:before {
+        transform: translateX(20px);
+    }
+
+    .cam-empty {
+        color: var(--text-muted);
+        text-align: center;
+        padding: 40px 0;
+    }
+</style>
+
+<div class="cam-header">
+    <h2>📷 Camera Control</h2>
+    <div class="cam-bulk-actions">
+        <button class="btn btn-on-all" onclick="bulkAction('on')">সব Camera On</button>
+        <button class="btn btn-off-all" onclick="bulkAction('off')">সব Camera Off</button>
+    </div>
+</div>
+
+{% if cameras %}
+<div class="cam-grid" id="cam-grid">
+    {% for cam in cameras %}
+    <div class="cam-card" data-camera-code="{{ cam.camera_code }}">
+        <div class="cam-card-top">
+            <div>
+                <p class="cam-room-name">{{ cam.room_name or cam.camera_code }}</p>
+                <p class="cam-code">Code: {{ cam.camera_code }}</p>
+            </div>
+            <span
+                class="status-badge {{ 'status-active' if cam.live_status == 'Active' else ('status-never' if cam.live_status == 'Never Connected' else 'status-offline') }}"
+                data-status-badge>
+                {{ cam.live_status }}
+            </span>
+        </div>
+        <p class="cam-heartbeat" data-heartbeat>
+            {% if cam.last_heartbeat %}Last seen: {{ cam.last_heartbeat }}{% else %}কখনো connect হয়নি{% endif %}
+        </p>
+        <div class="cam-toggle-row">
+            <span class="cam-toggle-label">Camera চালু রাখুন</span>
+            <label class="switch">
+                <input type="checkbox" {{ 'checked' if cam.is_enabled else '' }}
+                    onchange="toggleCamera('{{ cam.camera_code }}', this.checked)">
+                <span class="slider"></span>
+            </label>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="cam-empty">কোনো camera পাওয়া যায়নি। প্রথমে Camera table এ room যোগ করো।</div>
+{% endif %}
+
+<script>
+    async function toggleCamera(cameraCode, turnOn) {
+        try {
+            const res = await fetch(`/api/camera-control/${cameraCode}/${turnOn ? 'on' : 'off'}`, {
+                method: 'POST'
+            });
+            if (!res.ok) {
+                alert('কিছু ভুল হয়েছে, আবার চেষ্টা করো।');
+                refreshStatus();
+            }
+        } catch (e) {
+            alert('Server-এ যোগাযোগ করা যাচ্ছে না।');
+            refreshStatus();
+        }
+    }
+
+    async function bulkAction(action) {
+        const confirmMsg = action === 'on' ? 'সব camera চালু করতে চাও?' : 'সব camera বন্ধ করতে চাও?';
+        if (!confirm(confirmMsg)) return;
+        try {
+            const res = await fetch(`/api/camera-control/all/${action}`, { method: 'POST' });
+            if (res.ok) {
+                refreshStatus();
+            } else {
+                alert('কিছু ভুল হয়েছে, আবার চেষ্টা করো।');
+            }
+        } catch (e) {
+            alert('Server-এ যোগাযোগ করা যাচ্ছে না।');
+        }
+    }
+
+    async function refreshStatus() {
+        try {
+            const res = await fetch('/api/camera-status');
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.status !== 'success') return;
+
+            data.cameras.forEach(cam => {
+                const card = document.querySelector(`.cam-card[data-camera-code="${cam.camera_code}"]`);
+                if (!card) return;
+
+                const badge = card.querySelector('[data-status-badge]');
+                badge.textContent = cam.live_status;
+                badge.className = 'status-badge ' +
+                    (cam.live_status === 'Active' ? 'status-active' :
+                        cam.live_status === 'Never Connected' ? 'status-never' : 'status-offline');
+
+                const heartbeat = card.querySelector('[data-heartbeat]');
+                heartbeat.textContent = cam.last_heartbeat ? `Last seen: ${cam.last_heartbeat}` : 'কখনো connect হয়নি';
+
+                const checkbox = card.querySelector('input[type="checkbox"]');
+                checkbox.checked = cam.is_enabled;
+            });
+        } catch (e) {
+            // silent fail — পরের poll এ আবার চেষ্টা হবে
+        }
+    }
+
+    // প্রতি ১০ সেকেন্ডে live status refresh হবে
+    setInterval(refreshStatus, 10000);
+</script>
+{% endblock %}
